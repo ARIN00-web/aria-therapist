@@ -1,9 +1,16 @@
 import { GoogleGenAI } from '@google/genai';
 
 
-const ai = new GoogleGenAI({
-  apiKey: process.env.GEMINI_API_KEY || '',
-});
+
+let ai: GoogleGenAI | null = null;
+function getGeminiClient(): GoogleGenAI {
+  if (!ai) {
+    ai = new GoogleGenAI({
+      apiKey: process.env.GEMINI_API_KEY || '',
+    });
+  }
+  return ai;
+}
 
 
 const CRISIS_PHRASES = [
@@ -63,7 +70,7 @@ export async function detectCrisis(message: string): Promise<CrisisResponse> {
 
   
   try {
-    const response = await ai.models.generateContent({
+    const response = await getGeminiClient().models.generateContent({
       model: 'gemini-2.0-flash',
       contents: message,
       config: {
