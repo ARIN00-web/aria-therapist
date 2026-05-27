@@ -1,0 +1,730 @@
+Aria  —  AI  Therapist  Platform  |   Project  Documentation  &  Build  Guide
+ 
+ 
+ARIA 
+AI-Powered  Therapy  Support  Platform 
+Project  Documentation  &  Complete  Build  Guide 
+ 
+Stack Next.js   ·   Node.js   ·   MongoDB   ·   Claude  API   ·   Qdrant   ·   Redis  Type Full-stack  SaaS   ·   Mental  Health  Tech   ·   AI  Product  Build  Time 24  weeks   ·   6  phases   ·   Production-ready   
+ 
+Page  1  of  17
+ 
+Aria  —  AI  Therapist  Platform  |   Project  Documentation  &  Build  Guide
+ 
+1.  Project  Vision  
+Aria  is  an  AI-powered  emotional  support  web  application  that  provides  therapy-style  
+conversations
+ 
+to
+ 
+users
+ 
+seeking
+ 
+mental
+ 
+health
+ 
+support.
+ 
+The
+ 
+system
+ 
+is
+ 
+designed
+ 
+to
+ 
+feel
+ 
+as
+ 
+close
+ 
+to
+ 
+a
+ 
+human
+ 
+therapist
+ 
+as
+ 
+possible
+ 
+—
+ 
+warm,
+ 
+unhurried,
+ 
+deeply
+ 
+remembering,
+ 
+and
+ 
+grounded
+ 
+in
+ 
+real
+ 
+clinical
+ 
+techniques.
+  
+What  Makes  Aria  Different  
+Ordinary  chatbot Aria Forgets  everything  after  session  ends  Remembers  across  months  of  sessions  Generic  empathetic  responses  Grounded  in  CBT,  DBT,  ACT  via  live  RAG  retrieval  No  safety  system  Crisis  detection  with  hardcoded  emergency  responses  Asks  multiple  questions  at  once  One  question  per  response  —  like  a  real  therapist  No  data  protection  Field-level  encryption,  DPDP  Act  2023  compliant  Cold  restarts  every  session  Callbacks  to  previous  sessions  by  name   
+Core  Philosophy  
+Design  Principle 80%  of  the  quality  difference  between  a  mediocre  and  excellent  AI  therapist  lives  in  three  things:  the  system  prompt,  the  memory  architecture,  and  the  RAG  knowledge  base  —  not  which  model  you  use  or  whether  you  trained  it  yourself.   
+Non-Negotiable  Boundary Aria  is  an  emotional  support  tool,  not  a  licensed  therapist.  It  must  never  diagnose,  never  prescribe,  and  must  always  recommend  professional  help.  The  safety  layer  is  built  first,  before  any  other  feature.    
+Page  2  of  17
+ 
+Aria  —  AI  Therapist  Platform  |   Project  Documentation  &  Build  Guide
+ 
+2.  System  Architecture  
+The  platform  is  built  on  four  independently  deployable  layers  that  communicate  through  
+well-defined
+ 
+APIs.
+ 
+Each
+ 
+layer
+ 
+has
+ 
+a
+ 
+single
+ 
+responsibility.
+  
+Architecture  Overview   ┌────────────────────────────────────────────────────┐
+ │            Next.js  14  Frontend  (Vercel)               │
+ │    React  components  ·  Zustand  state  ·  SSE  streaming   │
+ └───────────────────┬───────────────────────────────┘
+                    │  HTTPS  /  SSE
+ ┌───────────────────┴───────────────────────────────┐
+ │          Node.js  /  Express  (Railway  /  Render)          │
+ │   Crisis  detector  ·  Auth  middleware  ·  Rate  limiter     │
+ └─────┬──────────────┬──────────────┬─────────────┘
+      │               │               │              │
+  MongoDB        Redis          Claude  API     Qdrant
+  Atlas          (BullMQ)       (Streaming)    Vector  DB
+  Sessions       Rate  limit     Sonnet/Haiku   Therapy  RAG
+  Users          Pub/sub
+  Memory
+  
+The  3-Tier  Memory  Architecture  This  is  the  solution  to  the  token  limit  problem.  Instead  of  passing  the  entire  conversation  history  
+(which
+ 
+eventually
+ 
+exceeds
+ 
+context
+ 
+limits),
+ 
+Aria
+ 
+maintains
+ 
+three
+ 
+compressed
+ 
+memory
+ 
+layers
+ 
+that
+ 
+together
+ 
+stay
+ 
+flat
+ 
+at
+ 
+~3,300
+ 
+tokens
+ 
+regardless
+ 
+of
+ 
+conversation
+ 
+length.
+  
+Tier Contents Token  budget Lifecycle Tier  1  Last  12  messages  verbatim  ~2,000  tokens  Current  session  Tier  2  Rolling  session  summary  (compressed)  
+~500  tokens  Updated  every  6  messages  Tier  3  Long-term  profile  across  all  sessions  
+~800  tokens  Updated  after  each  session  TOTAL  Full  context  every  call  ~3,300  tokens  Flat  forever    
+Page  3  of  17
+ 
+Aria  —  AI  Therapist  Platform  |   Project  Documentation  &  Build  Guide
+ 
+3.  Safety  Architecture  (Build  This  First)  
+Critical  Rule The  safety  layer  is  built  before  any  other  feature.  Not  after  the  UI,  not  after  authentication  —  first.  An  AI  that  handles  mental  health  content  without  a  robust  safety  system  can  cause  real  harm.   
+Crisis  Detection  Pipeline  Every  user  message  passes  through  a  crisis  classifier  before  reaching  the  main  LLM.  This  runs  
+on
+ 
+claude-haiku
+ 
+(fast,
+ 
+cheap)
+ 
+and
+ 
+scans
+ 
+for
+ 
+suicidal
+ 
+ideation,
+ 
+self-harm,
+ 
+and
+ 
+acute
+ 
+distress.
+   //  crisis.detector.js
+ const  CRISIS_PHRASES  =  [
+   'want  to  die',  'end  my  life',  'kill  myself',
+   'not  worth  living',  'self  harm',  'hurt  myself',
+   'no  point  anymore',  'better  off  dead'
+ ];
+  
+ //  Hardcoded  response  —  NEVER  generated  by  LLM
+ const  CRISIS_RESPONSE  =  {
+   message:  `I'm  really  glad  you  shared  that  with  me.
+   Please  reach  out  right  now:`,
+   resources:  [
+     {  name:  'iCall  (India)',  number:  '9152987821'  },
+     {  name:  'Vandrevala  Foundation',  number:  '1860-2662-345'  },
+     {  name:  'NIMHANS',  number:  '080-46110007'  }
+   ],
+   pauseSession:  true
+ };
+   
+Scope  Boundaries  —  What  Aria  Must  Never  Do  •  Never  diagnose  —  say  'what  you're  describing  sounds  difficult',  never  'you  have  
+depression'
+ •  Never  mention,  suggest,  or  comment  on  medications  •  Never  replace  the  recommendation  to  see  a  real  therapist  •  Never  continue  a  session  if  acute  crisis  is  detected  •  Always  show  crisis  resources  as  a  persistent,  visible  element  •  Never  generate  the  crisis  response  with  the  LLM  —  it  must  always  be  hardcoded   
+Mandatory  Disclaimer  
+Page  4  of  17
+ 
+Aria  —  AI  Therapist  Platform  |   Project  Documentation  &  Build  Guide
+ 
+User-Facing  Disclaimer  (shown  before  first  session) Aria  is  an  AI  emotional  support  companion,  not  a  licensed  therapist.  It  is  not  a  substitute  for  professional  mental  health  care.  In  a  crisis,  please  call  iCall:  9152987821  or  Vandrevala  Foundation:  1860-2662-345  (24/7).    
+Page  5  of  17
+ 
+Aria  —  AI  Therapist  Platform  |   Project  Documentation  &  Build  Guide
+ 
+4.  The  Therapist  Persona  &  Conversation  Engine  
+The  quality  of  Aria's  responses  comes  almost  entirely  from  the  system  prompt  and  conversation  
+techniques
+ 
+—
+ 
+not
+ 
+from
+ 
+which
+ 
+model
+ 
+is
+ 
+used.
+ 
+These
+ 
+are
+ 
+the
+ 
+five
+ 
+micro-techniques
+ 
+that
+ 
+make
+ 
+Aria
+ 
+feel
+ 
+human.
+  
+The  5  Techniques  That  Create  Human  Feel  
+# Technique What  it  is Example 1  Reflective  listening  Paraphrase  before  responding  "It  sounds  like  you're  feeling  overwhelmed  by  work  —  is  that  right?"  2  One  question  only  Never  ask  two  questions  "What  does  that  feel  like  for  you?"  —  not  two  questions  at  once  3  Tentative  emotion  naming  
+Don't  project  —  be  tentative  "There  seems  to  be  some  frustration  here"  not  "You're  frustrated"  4  Match  response  length  
+Short  message  =  short  reply  User  says  'yeah'  →  2  sentences  max,  not  5  paragraphs  5  Session  callbacks  Reference  past  sessions  "Last  time  you  mentioned  your  father  —  have  you  thought  more  about  that?"   
+System  Prompt  Architecture  The  system  prompt  is  built  dynamically  for  each  message  by  combining  four  layers  of  context:    SYSTEM  PROMPT  STRUCTURE:
+  
+ [1]  PERSONA  +  RULES  (~200  tokens)
+ You  are  Aria,  a  warm  AI  emotional  support  companion.
+ Trained  in  CBT,  person-centred  therapy,  mindfulness,  ACT.
+ Rules:  reflect  first,  one  question,  never  diagnose...
+  
+ [2]  LONG-TERM  PROFILE  FROM  TIER  3  (~800  tokens)
+ What  you  know  about  {name}:
+ Recurring  themes:  anxiety,  work  stress,  family  tension
+ Key  people:  mom  (supportive  but  critical),  manager  (source  of  pressure)
+ What  helps  them:  breathing  exercises,  journaling
+ Follow  up  on:  career  decision,  talk  about  childhood
+  
+ [3]  THIS  SESSION  SUMMARY  FROM  TIER  2  (~500  tokens)
+ Today's  mood:  4/10
+ Session  summary  so  far:  User  arrived  feeling  anxious  about...
+  
+ [4]  LAST  12  MESSAGES  FROM  TIER  1  (~2,000  tokens)
+ 
+Page  6  of  17
+ 
+Aria  —  AI  Therapist  Platform  |   Project  Documentation  &  Build  Guide
+ 
+(injected  as  messages  array)
+  
+ TOTAL:  ~3,500  tokens.  Flat  forever.
+   
+Supported  Therapeutic  Modalities  •  CBT  (Cognitive  Behavioural  Therapy)  —  thought  records,  cognitive  restructuring,  
+behavioural
+ 
+activation
+ •  DBT  (Dialectical  Behaviour  Therapy)  —  distress  tolerance,  emotion  regulation,  
+mindfulness
+ •  ACT  (Acceptance  and  Commitment  Therapy)  —  values  clarification,  defusion,  
+acceptance
+ •  Person-centred  therapy  (Carl  Rogers)  —  unconditional  positive  regard,  empathy,  
+authenticity
+ •  Motivational  Interviewing  —  ambivalence  exploration,  change  talk,  rolling  with  resistance   The  user  selects  their  preferred  approach  during  onboarding.  The  system  prompt  is  adjusted  
+accordingly.
+   
+Page  7  of  17
+ 
+Aria  —  AI  Therapist  Platform  |   Project  Documentation  &  Build  Guide
+ 
+5.  Memory  System  —  Unlimited  Conversations  
+This  is  the  core  engineering  challenge  of  the  project.  Without  a  proper  memory  architecture,  
+conversations
+ 
+are
+ 
+limited
+ 
+to
+ 
+40
+ 
+messages
+ 
+and
+ 
+users
+ 
+feel
+ 
+forgotten.
+ 
+With
+ 
+it,
+ 
+Aria
+ 
+remembers
+ 
+months
+ 
+of
+ 
+sessions
+ 
+in
+ 
+~3,300
+ 
+tokens.
+  
+Rolling  Summary  —  Tier  2  Every  time  the  working  memory  grows  past  12  messages,  the  oldest  6  messages  are  
+compressed
+ 
+into
+ 
+a
+ 
+running
+ 
+session
+ 
+digest.
+ 
+This
+ 
+runs
+ 
+on
+ 
+claude-haiku
+ 
+(fast
+ 
++
+ 
+cheap)
+ 
+in
+ 
+the
+ 
+background.
+ 
+The
+ 
+user
+ 
+never
+ 
+notices.
+   //  Trigger:  session.messages.length  >  12
+ //  Action:  compress  oldest  6  messages  into  rollingSummary
+ //  Model:  claude-haiku  (fast,  10x  cheaper  than  Sonnet)
+ //  Output:  ~200  words  capturing  themes,  emotions,  insights
+  
+ //  The  summary  captures:
+ //  -  Key  emotions  expressed
+ //  -  Topics  discussed
+ //  -  Any  breakthroughs  or  insights
+ //  -  What  the  user  is  currently  struggling  with
+ //  -  Homework  or  suggestions  given
+   
+Long-Term  Profile  —  Tier  3  At  the  end  of  every  session,  the  LLM  extracts  structured  information  and  updates  the  user's  
+permanent
+ 
+profile.
+ 
+This
+ 
+is
+ 
+what
+ 
+enables
+ 
+Aria
+ 
+to
+ 
+say
+ 
+'last
+ 
+time
+ 
+we
+ 
+talked
+ 
+about
+ 
+your
+ 
+mother'
+ 
+three
+ 
+months
+ 
+later.
+   //  Profile  structure  (stored  in  MongoDB  Memory  collection)
+ {
+   recurringThemes:  ['anxiety',  'work  stress',  'family  tension'],
+   keyPeople:  [
+     {  name:  'mom',  relationship:  'mother',  dynamic:  'supportive  but  critical'  },
+     {  name:  'Rahul',  relationship:  'manager',  dynamic:  'source  of  pressure'  }
+   ],
+   triggers:  ['deadlines',  'conflict',  'uncertainty'],
+   copingStrategies:  [
+     {  strategy:  'breathing  exercises',  effectiveness:  'high'  },
+     {  strategy:  'journaling',  effectiveness:  'medium'  }
+   ],
+   progressNotes:  ['opened  up  about  father  in  session  3',  'trying  journaling  since  
+session
+ 
+5'],
+   moodTrend:  'slowly  improving',
+   followUpTopics:  ['career  decision',  'talk  about  childhood  memories']
+ }
+ 
+Page  8  of  17
+ 
+Aria  —  AI  Therapist  Platform  |   Project  Documentation  &  Build  Guide
+ 
+  
+MongoDB  Schema   User     {  _id,  name,  email,  preferredModality,  timezone,  onboardingAnswers  }
+  
+ Session  {  _id,  userId,  startedAt,  endedAt,
+           moodBefore,  moodAfter,             //  1-10  slider
+           messages:  [{role,  content,  ts}],   //  working  memory
+           rollingSummary:  String  }            //  tier  2
+  
+ Memory   {  _id,  userId,
+           profile:  {                         //  tier  3
+             recurringThemes[],  keyPeople[],  triggers[],
+             copingStrategies[],  progressNotes[],
+             moodTrend,  followUpTopics[]
+           },
+           lastUpdated  }
+    
+Page  9  of  17
+ 
+Aria  —  AI  Therapist  Platform  |   Project  Documentation  &  Build  Guide
+ 
+6.  RAG  Knowledge  Base  —  Therapy  Books  in  the  
+Prompt
+ 
+RAG  (Retrieval  Augmented  Generation)  is  how  Aria  uses  real  clinical  knowledge  without  
+fine-tuning.
+ 
+Therapy
+ 
+resources
+ 
+are
+ 
+chunked,
+ 
+embedded,
+ 
+stored
+ 
+in
+ 
+a
+ 
+vector
+ 
+database,
+ 
+and
+ 
+the
+ 
+most
+ 
+relevant
+ 
+passages
+ 
+are
+ 
+retrieved
+ 
+and
+ 
+injected
+ 
+into
+ 
+every
+ 
+prompt.
+  
+Why  RAG  —  Not  Fine-Tuning  
+Important The  model  already  knows  every  major  therapy  framework  from  its  training.  Fine-tuning  it  on  books  adds  noise,  not  knowledge  —  like  re-teaching  a  doctor  their  curriculum.  RAG  retrieves  the  right  passage  at  the  right  moment,  live,  for  free.   
+The  RAG  Pipeline  —  Step  by  Step  1.  Read  therapy  resource  files  (PDF,  TXT)  2.  Chunk  into  concept-sized  pieces  (~600  characters,  ~150  words,  one  technique  per  
+chunk)
+ 3.  Embed  each  chunk  using  OpenAI  embeddings  API  —  each  chunk  becomes  a  vector  4.  Store  vectors  +  metadata  (source,  modality,  chapter)  in  Qdrant  5.  On  every  user  message:  embed  the  message,  find  top  3  most  similar  chunks  6.  Inject  retrieved  chunks  into  system  prompt  as  'relevant  clinical  context'  7.  Model  responds  using  real  published  techniques  —  grounded,  accurate,  evidence-based   
+Free  Legal  Knowledge  Sources  
+Source Content Where  to  get NIMH  Publications  Depression,  anxiety,  PTSD  guides  nimh.nih.gov  (free  PDF)  Therapist  Aid  CBT,  DBT,  ACT  worksheets  therapistaid.com  (free)  APA  Open  Access  Research-backed  techniques  apa.org/pubs/journals  WHO  mhGAP  Guidelines  Global  mental  health  framework  who.int  (free)  Psychology  Tools  (free)  Psychoeducation  materials  psychologytools.com  iCall  India  India-specific  resources  icallhelpline.org    
+Page  10  of  17
+ 
+Aria  —  AI  Therapist  Platform  |   Project  Documentation  &  Build  Guide
+ 
+7.  User  Experience  &  Interface  Design  
+The  interface  must  feel  like  walking  into  a  therapist's  office,  not  opening  a  chat  app.  Every  
+design
+ 
+decision
+ 
+reinforces
+ 
+calm,
+ 
+safety,
+ 
+and
+ 
+trust.
+  
+Design  Principles  •  Calm  by  design  —  soft  neutrals  (warm  whites,  sage  greens,  muted  blues),  no  aggressive  
+CTAs
+ •  No  animations  faster  than  300ms  —  fast  motion  feels  anxious  •  Generous  whitespace  —  breathing  room  is  not  wasted  space  •  Typography  that  breathes  —  1.7  line-height,  readable  font  sizes  •  No  notification  dots,  badges,  or  dark  patterns  •  Crisis  button  always  visible  —  small,  persistent,  never  hidden   
+Onboarding  Flow  —  5  Questions  Onboarding  is  a  conversation,  not  a  form.  Each  question  is  shown  one  at  a  time,  full  screen.   8.  "What's  your  name?"  —  personalisation  starts  immediately  9.  "What  brings  you  here  today?"  —  open  text,  sets  first  session  context  10.  "What  kind  of  support  are  you  looking  for?"  —  three  choices:  practical  tools  /  just  want  to  
+be
+ 
+heard
+ 
+/
+ 
+understand
+ 
+myself
+ 
+better
+ 11.  "Have  you  spoken  to  a  therapist  before?"  —  calibrates  how  much  to  explain  12.  "Are  you  currently  having  thoughts  of  harming  yourself?"  —  crisis  safety  check  with  clear  
+hotlines
+ 
+if
+ 
+yes
+  
+Session  Interface  Features  •  Typing  indicator  that  is  slow  (2-3  seconds)  —  mimics  a  human  thinking  and  composing  •  Response  arrives  in  chunks  via  streaming  —  appears  like  someone  typing  in  real  time  •  Mood  check-in  slider  (1-10)  at  session  start  and  end  •  Optional  session  timer  —  like  a  real  50-minute  therapy  session  •  End-of-session  summary  card  —  themes  covered,  reflection  to  sit  with,  what  to  pick  up  
+next
+ •  Breathing  exercise  widget  —  accessible  at  any  point,  animated  4-7-8  breathing  guide  •  Session  history  panel  —  past  sessions  visible,  content  encrypted  and  private    
+Page  11  of  17
+ 
+Aria  —  AI  Therapist  Platform  |   Project  Documentation  &  Build  Guide
+ 
+8.  Security,  Privacy  &  Legal  Compliance  
+Why  This  Matters  Here  More  Than  Any  Other  App Therapy  conversations  contain  the  most  sensitive  data  a  person  can  share  —  family  trauma,  mental  illness,  relationship  failures.  A  breach  is  not  just  a  privacy  violation  —  it  can  destroy  lives.  Security  is  a  moral  obligation,  not  a  feature.   
+Minimum  Security  Requirements  •  All  session  messages  encrypted  at  rest  —  MongoDB  field-level  encryption  (AES-256)  •  JWT  access  tokens  expire  in  15  minutes  •  Refresh  tokens  rotate  on  every  use  —  stored  as  httpOnly  cookie,  invisible  to  JavaScript  •  No  session  content  in  server  logs  —  log  metadata  only  (session  ID,  timestamp,  duration)  •  "Delete  my  account"  truly  deletes  everything  —  User,  Sessions,  Memory,  all  Qdrant  
+vectors
+ •  Auto-delete  inactive  accounts  after  12  months  •  Rate  limiting  on  all  API  routes  —  Redis  sliding  window,  60  requests/minute  per  IP  •  All  dependencies  audited  with  npm  audit  before  deployment   
+India  Legal  Compliance  —  DPDP  Act  2023  
+Requirement How  Aria  implements  it Informed  consent  Full-screen  disclaimer  +  'I  understand'  button  before  first  session  Right  to  access  User  can  view  all  their  data  from  their  account  page  Right  to  erasure  'Delete  my  account'  button  —  permanently  wipes  all  data  Data  minimisation  Only  collect  name,  email,  session  content  —  nothing  else  Privacy  policy  Plain-English  policy  page  —  no  legalese  Retention  policy  Auto-delete  after  12  months  of  inactivity    
+Page  12  of  17
+ 
+Aria  —  AI  Therapist  Platform  |   Project  Documentation  &  Build  Guide
+ 
+9.  Complete  Technology  Stack  
+Frontend  
+Technology Purpose Version Next.js  14  React  framework,  App  Router,  SSR  14.x  Tailwind  CSS  Utility-first  styling  3.x  Zustand  Client  state  management  4.x  Framer  Motion  Calm,  slow  animations  10.x  Monaco  Editor  Code  display  (if  needed)  0.44.x   
+Backend  
+Technology Purpose Notes Node.js  +  Express  API  server,  middleware,  auth  v20  LTS  MongoDB  Atlas  Primary  database  (encrypted)  Free  tier  available  Redis  (Upstash)  Rate  limiting,  BullMQ  jobs  Serverless,  free  tier  BullMQ  Session  summary  background  jobs  Runs  on  Redis  NextAuth.js  Authentication,  Google  OAuth  v5  /  Auth.js   
+AI  Layer  
+Technology Purpose Notes 
+Claude  Sonnet  (Anthropic)  
+Main  therapy  chat  LLM  Streaming  responses  
+Claude  Haiku  (Anthropic)  
+Summarisation  +  crisis  check  10x  cheaper,  fast  
+OpenAI  Embeddings  Text  →  vectors  for  RAG  text-embedding-3-small  Qdrant  Vector  database  for  RAG  Free  tier,  open  source   
+Infrastructure  &  Monitoring  
+Technology Purpose Notes Vercel  Frontend  deployment  Auto-deploys  from  GitHub  Railway  /  Render  Backend  deployment  Free  tier  available  
+Page  13  of  17
+ 
+Aria  —  AI  Therapist  Platform  |   Project  Documentation  &  Build  Guide
+ 
+Technology Purpose Notes Sentry  Error  tracking  Free  tier  PostHog  Anonymised  analytics  Never  logs  message  content  Better  Uptime  Uptime  monitoring  Free  tier    
+Page  14  of  17
+ 
+Aria  —  AI  Therapist  Platform  |   Project  Documentation  &  Build  Guide
+ 
+10.  Project  Folder  Structure  
+ aria-therapist/
+ ├──  frontend/                     #  Next.js  14  app
+ │    ├──  app/
+ │    │    ├──  (auth)/              #  Login,  signup  pages
+ │    │    ├──  (dashboard)/         #  Protected  pages
+ │    │    │    ├──  session/         #  Chat  interface
+ │    │    │    ├──  history/         #  Past  sessions
+ │    │    │    └──  settings/        #  Account  +  privacy
+ │    │    ├──  onboarding/          #  5-step  onboarding
+ │    │    └──  privacy/             #  Privacy  policy
+ │    ├──  components/
+ │    │    ├──  chat/                #  Message  bubbles,  typing  indicator
+ │    │    ├──  mood/                #  Mood  slider  widget
+ │    │    ├──  breathing/           #  4-7-8  breathing  exercise
+ │    │    └──  crisis/              #  Crisis  banner  +  resources
+ │    └──  lib/
+ │        ├──  auth.ts              #  NextAuth  config
+ │        ├──  store.ts             #  Zustand  state
+ │        └──  api.ts               #  API  client  helpers
+ ├──  backend/                      #  Node.js  +  Express
+ │    ├──  routes/
+ │    │    ├──  session.routes.js
+ │    │    ├──  user.routes.js
+ │    │    └──  memory.routes.js
+ │    ├──  services/
+ │    │    ├──  context.builder.js   #  Assembles  3-tier  prompt
+ │    │    ├──  summarizer.js        #  Rolling  summary  (Haiku)
+ │    │    ├──  memory.service.js    #  Long-term  profile  updates
+ │    │    └──  crisis.detector.js   #  Safety  layer
+ │    ├──  models/
+ │    │    ├──  User.model.js
+ │    │    ├──  Session.model.js
+ │    │    └──  Memory.model.js
+ │    └──  middleware/
+ │        ├──  auth.middleware.js
+ │        └──  rateLimit.middleware.js
+ ├──  rag/                          #  RAG  pipeline
+ │    ├──  ingest.js                #  Read,  chunk,  embed,  store
+ │    ├──  retrieve.js              #  Query  vector  DB
+ │    └──  data/                    #  Therapy  resources  (text  files)
+ └──  docker-compose.yml            #  Local  dev  environment
+    
+Page  15  of  17
+ 
+Aria  —  AI  Therapist  Platform  |   Project  Documentation  &  Build  Guide
+ 
+11.  Build  Phases  &  Timeline  
+Phase Name What  you  build Duration 1  Foundations  React,  Node.js,  MongoDB  —  basic  chat  app  skeleton  
+Weeks  1–4  
+2  Next.js  +  Auth  Next.js  14,  Google  OAuth,  streaming  responses  
+Weeks  5–8  
+3  LLM  Integration  Aria  persona,  system  prompt,  rolling  memory  
+Weeks  9–12  
+4  RAG  Pipeline  Therapy  knowledge  base,  vector  DB,  retrieval  
+Weeks  13–16  
+5  Security  Encryption,  DPDP  compliance,  data  deletion  
+Weeks  17–20  
+6  Deploy  &  Launch  Vercel,  tests,  monitoring,  first  real  users  Weeks  21–24   
+Build  Order  Rule Do  NOT  start  with  the  UI.  Start  with:  (1)  Crisis  safety  layer,  (2)  Encryption,  (3)  Therapist  persona,  (4)  Memory  system,  (5)  RAG,  (6)  UI.  If  you  build  the  UI  first,  you  will  be  tempted  to  ship  without  safety  features.   
+12.  Instructions  for  Your  AI  Coding  Assistant  
+These  are  the  specific  instructions  to  give  your  VS  Code  AI  (Copilot,  Cursor,  or  Antigravity)  
+when
+ 
+working
+ 
+on
+ 
+each
+ 
+part
+ 
+of
+ 
+the
+ 
+project.
+  
+What  to  Say  When  Starting  Each  File   
+For  the  crisis  detector Build  a  crisis  detection  service  for  a  mental  health  app.  It  must:  (1)  scan  every  user  message  for  crisis  keywords  before  the  message  reaches  the  LLM,  (2)  return  a  hardcoded  (never  LLM-generated)  crisis  response  with  Indian  helpline  numbers  when  triggered,  (3)  be  a  pure  function  with  no  side  effects.  Use  TypeScript.   
+For  the  context  builder Build  a  context  assembler  for  an  AI  therapist  app.  It  takes  a  userId  and  sessionId,  queries  MongoDB  for:  (1)  last  12  session  messages,  (2)  the  rolling  session  summary,  (3)  the  user's  
+Page  16  of  17
+ 
+Aria  —  AI  Therapist  Platform  |   Project  Documentation  &  Build  Guide
+ 
+long-term  memory  profile.  It  combines  these  into  a  system  prompt  under  3,500  tokens  total.  Use  async/await  and  TypeScript.   
+For  the  RAG  retriever Build  a  RAG  retrieval  function  that  takes  a  user  message  string,  embeds  it  using  the  OpenAI  embeddings  API,  queries  a  Qdrant  vector  collection  called  'therapy_knowledge',  and  returns  the  top  3  most  similar  chunks  with  their  source  metadata.  Use  TypeScript  and  the  Qdrant  JS  client.   
+For  the  streaming  chat  endpoint Build  a  Next.js  14  App  Router  API  route  at  /api/chat  that:  (1)  authenticates  the  user  via  NextAuth  session,  (2)  runs  the  crisis  detector,  (3)  builds  the  context  using  the  3-tier  memory  system,  (4)  calls  the  Anthropic  Claude  API  with  streaming  enabled,  (5)  returns  a  ReadableStream  to  the  client.  Include  error  handling.   
+General  Rules  for  Your  AI  Assistant  •  Always  use  TypeScript  —  never  plain  JavaScript  •  Always  handle  errors  with  try/catch  and  meaningful  error  messages  •  Never  hardcode  API  keys  —  always  use  process.env  •  Always  validate  user  input  before  processing  •  Never  log  message  content  —  only  log  session  IDs  and  timestamps  •  Use  async/await,  never  callbacks  •  Every  function  that  touches  the  LLM  must  have  a  timeout   
+ 
+Ready  to  Build Start  with  Phase  1.  Build  the  basic  chat  app.  Then  add  Aria. The  safety  layer  comes  before  the  first  line  of  UI  code. Aria  —  AI  Therapist  Platform   ·   Documentation  v1.0   ·   May  2026
+ 
+Page  17  of  17
