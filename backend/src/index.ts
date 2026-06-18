@@ -1,7 +1,10 @@
+import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import dotenv from 'dotenv';
+import mongoose from 'mongoose';
+
 import { detectCrisis } from './services/crisis.detector';
 
 dotenv.config();
