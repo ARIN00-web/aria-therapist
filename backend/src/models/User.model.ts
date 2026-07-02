@@ -1,6 +1,11 @@
 import { Schema, model, Document } from 'mongoose';
+import bcrypt from 'bcrypt';
+import { randomUUID } from "crypto";
+
+
 
 export interface IUser extends Document {
+  id: string;
   name: string;
   email: string;
   preferredModality: 'CBT' | 'DBT' | 'ACT' | 'Person-centred' | 'Motivational Interviewing';
@@ -10,6 +15,7 @@ export interface IUser extends Document {
 }
 
 const UserSchema = new Schema<IUser>({
+  id: { type: String, default: uuidv4() },
   name: { type: String, required: true },
   email: { type: String, required: true, unique: true, index: true },
   preferredModality: { 
