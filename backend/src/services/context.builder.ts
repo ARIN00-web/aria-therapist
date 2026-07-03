@@ -70,54 +70,41 @@ If a conversation involves possible immediate danger or crisis, respond with war
 A successful response leaves the user feeling more understood, more emotionally aware, and better able to take one small next step.
 `;
 
-
-export const buildContext = async (session: ISession, memory: IMemory, user: IUser) => {
+export const buildContext = async (session: ISession, memory: IMemory | null, user: IUser) => {
   const persona = AI_PERSONA;
-  const profile = memory.profile;
 
-  const recurringThemes = profile.recurringThemes.join(', ');
-  const keyPeople = profile.keyPeople.map(({ name, relationship, dynamic }) => `${name} is the user's (${relationship}) and is generally ${dynamic}`).join(', ');
-  const triggers = profile.triggers.join(', ');
-  const copingStrategies = profile.copingStrategies.map(({ strategy, effectiveness }) => `${strategy} has been ${effectiveness}`).join(', ');
-  const progressNotes = profile.progressNotes.join(', ');
-  const moodTrend = profile.moodTrend;
-  const followUpTopics = profile.followUpTopics.join(', ');
+  const longTermMemory = memory ? [
+    "## Long-Term Memory",
+    memory.profile.recurringThemes.length ? `Recurring themes: ${memory.profile.recurringThemes.join(', ')}` : null,
+    memory.profile.keyPeople.length ? `Important people: ${memory.profile.keyPeople.map(({ name, relationship, dynamic }) => `${name} is the user's (${relationship}) and is generally ${dynamic}`).join(', ')}` : null,
+    memory.profile.triggers.length ? `Known triggers: ${memory.profile.triggers.join(', ')}` : null,
+    memory.profile.copingStrategies.length ? `Helpful coping strategies: ${memory.profile.copingStrategies.map(({ strategy, effectiveness }) => `${strategy} has been ${effectiveness}`).join(', ')}` : null,
+    memory.profile.progressNotes.length ? `Recent progress: ${memory.profile.progressNotes.join(', ')}` : null,
+    memory.profile.moodTrend ? `Overall mood trend: ${memory.profile.moodTrend}` : null,
+    memory.profile.followUpTopics.length ? `Suggested follow-up topics: ${memory.profile.followUpTopics.join(', ')}` : null,
+  ] : ["## Long-Term Memory", "This is a new user. No long-term memory exists yet."];
 
- const context = [
-  persona,
+  const context = [
+    persona,
+    "## User Information",
+    `Name: ${user.name}`,
+    `User ID: ${user.id}`,
+    "",
+    "## Current Session",
+    `Session started: ${session.startedAt.toLocaleDateString()}`,
+    session.moodBefore ? `Mood at session start: ${session.moodBefore}` : null,
+    session.rollingSummary
+      ? `Session summary so far: ${session.rollingSummary}`
+      : "This is the beginning of the session. No summary yet.",
+    "",
+    ...longTermMemory,
+    "",
+    "Use this information only as background context.",
+    "Do not repeat it verbatim.",
+    "Naturally remember relevant details when they help the conversation.",
+  ]
+  .filter(Boolean)
+  .join("\n");
 
-  "## User Information",
-  `Name: ${user.name}`,
-  `User ID: ${user.id}`,
-
-  "",
-
- "## Current Session",
-`Session started: ${session.startedAt.toLocaleDateString()}`,
-session.moodBefore ? `Mood at session start: ${session.moodBefore}` : null,
-session.rollingSummary 
-  ? `Session summary so far: ${session.rollingSummary}` 
-  : "This is the beginning of the session. No summary yet.",
-
-"",
-
-"## Long-Term Memory",
-
-  recurringThemes && `Recurring themes: ${recurringThemes}`,
-  keyPeople && `Important people: ${keyPeople}`,
-  triggers && `Known triggers: ${triggers}`,
-  copingStrategies && `Helpful coping strategies: ${copingStrategies}`,
-  progressNotes && `Recent progress: ${progressNotes}`,
-  moodTrend && `Overall mood trend: ${moodTrend}`,
-  followUpTopics && `Suggested follow-up topics: ${followUpTopics}`,
-
-  "",
-
-  "Use this information only as background context.",
-  "Do not repeat it verbatim.",
-  "Naturally remember relevant details when they help the conversation.",
-]
-.filter(Boolean)
-.join("\n");
   return context;
 };

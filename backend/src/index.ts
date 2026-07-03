@@ -4,6 +4,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import dotenv from 'dotenv';
 import mongoose from 'mongoose';
+import router from './routes/chat.route';
 
 import { detectCrisis } from './services/crisis.detector';
 
@@ -15,7 +16,7 @@ const PORT = process.env.PORT || 5001;
 app.use(helmet());
 app.use(cors());
 app.use(express.json());
-
+app.use(router);
 
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', message: 'Aria Therapist Backend is running' });
