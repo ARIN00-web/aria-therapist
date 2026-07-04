@@ -5,7 +5,7 @@ import helmet from 'helmet';
 import dotenv from 'dotenv';
 import mongoose from 'mongoose';
 import router from './routes/chat.route';
-
+import connectDB from './database/connection.database';
 import { detectCrisis } from './services/crisis.detector';
 
 dotenv.config();
@@ -39,6 +39,11 @@ app.post('/test-crisis', async (req, res): Promise<void> => {
     res.status(500).json({ error: error.message || 'An error occurred' });
   }
 });
-app.listen(PORT, () => {
-  console.log(`[server]: Server is running at http://localhost:${PORT}`);
-});
+
+
+(async () => {
+  await connectDB();
+  app.listen(PORT, () => {
+    console.log(`[server]: Server is running at http://localhost:${PORT}`);
+  });
+})();
