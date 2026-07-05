@@ -72,6 +72,9 @@ A successful response leaves the user feeling more understood, more emotionally 
 
 export const buildContext = async (session: ISession, memory: IMemory | null, user: IUser) => {
   const persona = AI_PERSONA;
+  const preferredModality = user.preferredModality
+    ? `Preferred modality: ${user.preferredModality}`
+    : null;
 
   const longTermMemory = memory ? [
     "## Long-Term Memory",
@@ -88,9 +91,9 @@ export const buildContext = async (session: ISession, memory: IMemory | null, us
     persona,
     "## User Information",
     `Name: ${user.name}`,
-    `User ID: ${user.id}`,
+    preferredModality,
     "",
-    "## Current Session",
+    "## Tier 2: Current Session Summary",
     `Session started: ${session.startedAt.toLocaleDateString()}`,
     session.moodBefore ? `Mood at session start: ${session.moodBefore}` : null,
     session.rollingSummary

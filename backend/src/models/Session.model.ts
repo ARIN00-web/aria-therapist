@@ -15,6 +15,7 @@ export interface ISession extends Document {
   moodAfter?: number;
   messages: IMessage[];
   rollingSummary?: string;
+  summaryMessageCount: number;
 }
 
 const MessageSchema = new Schema<IMessage>({
@@ -37,7 +38,8 @@ const SessionSchema = new Schema<ISession>({
   moodBefore: { type: Number, min: 1, max: 10 },
   moodAfter: { type: Number, min: 1, max: 10 },
   messages: [MessageSchema],
-  rollingSummary: { type: String }
+  rollingSummary: { type: String, default: '' },
+  summaryMessageCount: { type: Number, default: 0, min: 0 }
 }, {
 
   toJSON: { getters: true },

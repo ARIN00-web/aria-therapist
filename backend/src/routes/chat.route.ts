@@ -8,6 +8,8 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 import { authMiddleware } from '../middleware/auth.middleware';
 import { rateLimitMiddleware } from '../middleware/rateLimit.middleware';
 import { summarizeSessionIfNeeded } from '../services/summarizer';
+import { detectCrisis } from '../services/crisis.detector';
+import { withTimeout } from '../utils/withTimeout';
 
 const router = Router();
 const genai = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
@@ -45,6 +47,18 @@ router.post('/api/chat', authMiddleware, rateLimitMiddleware, async (req, res) =
             return res.status(404).json({ error: 'Session not found' });
         }
 
+        console.log(`[Chat] Running crisis detection for session ${sessionId}`);
+        const crisisResult = await detectCrisis(message);
+        if (crisisResult.isCrisis) {
+            console.warn(`[Chat] Crisis message detected for session ${sessionId}`);
+            session.messages.push({ role: 'user', content: message, ts: new Date() });
+            if (crisisResult.message) {
+                session.messages.push({ role: 'assistant', content: crisisResult.message, ts: new Date() });
+            }
+            await session.save();
+            return res.status(200).json(crisisResult);
+        }
+
         console.log('[Chat] Building history from last 12 messages');
         const history = session.messages.slice(-12).map((m) => ({
             role: m.role,
@@ -72,7 +86,11 @@ router.post('/api/chat', authMiddleware, rateLimitMiddleware, async (req, res) =
 
         console.log('[Chat] Sending message to Gemini');
         const chat = model.startChat({ history });
-        const result = await chat.sendMessage(message);
+        const result = await withTimeout(
+            chat.sendMessage(message),
+            15000,
+            'Therapy chat response'
+        );
         const reply = result.response.text();
         console.log('[Chat] Gemini response received');
 

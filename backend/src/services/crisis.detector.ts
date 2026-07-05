@@ -1,4 +1,5 @@
 import { GoogleGenAI } from '@google/genai';
+import { withTimeout } from '../utils/withTimeout';
 
 
 
@@ -70,18 +71,22 @@ export async function detectCrisis(message: string): Promise<CrisisResponse> {
 
   
   try {
-    const response = await getGeminiClient().models.generateContent({
-      model: 'gemini-2.0-flash',
-      contents: message,
-      config: {
-        systemInstruction: `You are a strict safety classifier for a mental health support platform.
+    const response = await withTimeout(
+      getGeminiClient().models.generateContent({
+        model: 'gemini-2.0-flash',
+        contents: message,
+        config: {
+          systemInstruction: `You are a strict safety classifier for a mental health support platform.
 Your task is to analyze the user message and determine if it indicates immediate danger of self-harm, suicide, or severe, acute mental health crisis.
 Respond with exactly one word: "YES" or "NO".
 Do not write anything else. No explanation, no punctuation.`,
-        temperature: 0,
-        maxOutputTokens: 10,
-      }
-    });
+          temperature: 0,
+          maxOutputTokens: 10,
+        }
+      }),
+      8000,
+      'Crisis detection'
+    );
 
     const verdict = response.text?.trim().toUpperCase();
 
