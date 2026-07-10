@@ -1,26 +1,94 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #f7f4ee;
+  --foreground: #20231f;
+  --muted: #66706a;
+  --soft: #edf2ec;
+  --border: #d9dfd8;
+  --accent: #4f7f68;
+  --accent-strong: #3e6754;
+  --danger: #9a3f3f;
+  --ring: #b8d3c3;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --font-sans: Arial, Helvetica, sans-serif;
+  --font-mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
+}
+
+.field {
+  width: 100%;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: #ffffff;
+  padding: 0.9rem 1rem;
+  color: var(--foreground);
+  outline: none;
+  transition: border-color 300ms ease, box-shadow 300ms ease;
+}
+
+.field:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 4px var(--ring);
+}
+
+.choice,
+.quiet-button {
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: #ffffff;
+  padding: 0.9rem 1rem;
+  text-align: left;
+  transition: background 300ms ease, border-color 300ms ease, transform 300ms ease;
+}
+
+.choice:hover,
+.quiet-button:hover {
+  border-color: var(--accent);
+  background: var(--soft);
+}
+
+.choice-active {
+  border-color: var(--accent);
+  background: var(--soft);
+}
+
+.breathing-circle {
+  animation: breathe 19s ease-in-out infinite;
+}
+
+@keyframes breathe {
+  0%, 100% {
+    transform: scale(0.82);
+  }
+  21% {
+    transform: scale(1);
+  }
+  58% {
+    transform: scale(1);
+  }
 }

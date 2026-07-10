@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 import {ISession} from '../models/Session.model';
 import {IMemory} from '../models/Memory.model';
 import {IUser} from '../models/User.model';
@@ -111,3 +112,86 @@ export const buildContext = async (session: ISession, memory: IMemory | null, us
 
   return context;
 };
+=======
+import { Types } from 'mongoose';
+import { MemoryModel, type IMemoryProfile } from '../models/Memory.model';
+import { SessionModel } from '../models/Session.model';
+import { UserModel } from '../models/User.model';
+import type { ChatMessage } from './llm.client';
+
+export interface TherapyContext {
+  systemPrompt: string;
+  messages: ChatMessage[];
+}
+
+export async function buildTherapyContext(
+  userId: string,
+  sessionId: string,
+  clinicalContext: string[]
+): Promise<TherapyContext> {
+  const [user, session, memory] = await Promise.all([
+    UserModel.findById(userId),
+    SessionModel.findOne({ _id: sessionId, userId: new Types.ObjectId(userId) }),
+    MemoryModel.findOne({ userId: new Types.ObjectId(userId) })
+  ]);
+
+  if (!user || !session) {
+    throw new Error('Session context not found');
+  }
+
+  const profile = memory?.profile || emptyProfile();
+  const messages = session.messages.slice(-12).map((message) => ({
+    role: message.role,
+    content: message.content
+  }));
+
+  return {
+    systemPrompt: [
+      personaBlock(user.name, user.preferredModality),
+      profileBlock(user.name, profile),
+      sessionBlock(session.rollingSummary || ''),
+      clinicalContextBlock(clinicalContext)
+    ].join('\n\n'),
+    messages
+  };
+}
+
+function personaBlock(name: string, modality: string): string {
+  return `You are Aria, a warm AI emotional support companion for ${name}.
+You are not a licensed therapist and must not diagnose, prescribe, or replace professional care.
+Use ${modality} when helpful, with reflective listening, tentative emotion naming, and one question per response.
+Match the user's response length. Never ask multiple questions at once. Encourage professional support when appropriate.`;
+}
+
+function profileBlock(name: string, profile: IMemoryProfile): string {
+  return `What you know about ${name}:
+Recurring themes: ${profile.recurringThemes.join(', ') || 'none yet'}
+Key people: ${profile.keyPeople.map((person) => `${person.name} (${person.relationship}: ${person.dynamic})`).join('; ') || 'none yet'}
+Triggers: ${profile.triggers.join(', ') || 'none yet'}
+Coping strategies: ${profile.copingStrategies.map((item) => `${item.strategy} (${item.effectiveness})`).join('; ') || 'none yet'}
+Progress notes: ${profile.progressNotes.join('; ') || 'none yet'}
+Mood trend: ${profile.moodTrend || 'unknown'}
+Follow up on: ${profile.followUpTopics.join(', ') || 'none yet'}`;
+}
+
+function sessionBlock(rollingSummary: string): string {
+  return `This session summary so far: ${rollingSummary || 'No summary yet. Use the latest messages as the primary context.'}`;
+}
+
+function clinicalContextBlock(clinicalContext: string[]): string {
+  if (!clinicalContext.length) return 'Relevant clinical context: none retrieved.';
+  return `Relevant clinical context:\n${clinicalContext.map((chunk, index) => `${index + 1}. ${chunk}`).join('\n')}`;
+}
+
+function emptyProfile(): IMemoryProfile {
+  return {
+    recurringThemes: [],
+    keyPeople: [],
+    triggers: [],
+    copingStrategies: [],
+    progressNotes: [],
+    moodTrend: '',
+    followUpTopics: []
+  };
+}
+>>>>>>> b406221 (feat: add user export route and memory management services)

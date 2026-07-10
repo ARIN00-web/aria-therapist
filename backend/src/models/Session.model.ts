@@ -1,4 +1,4 @@
-import { Schema, model, Document } from 'mongoose';
+import { Schema, model, Document, Types } from 'mongoose';
 import { encrypt, decrypt } from '../utils/encryption';
 
 export interface IMessage {
@@ -8,14 +8,23 @@ export interface IMessage {
 }
 
 export interface ISession extends Document {
-  userId: Schema.Types.ObjectId;
+  userId: Types.ObjectId;
   startedAt: Date;
   endedAt?: Date;
   moodBefore?: number;
   moodAfter?: number;
   messages: IMessage[];
   rollingSummary?: string;
+<<<<<<< HEAD
   summaryMessageCount: number;
+=======
+  status: 'active' | 'paused_for_crisis' | 'ended';
+  summaryCard?: {
+    themes: string[];
+    reflection: string;
+    nextTopic: string;
+  };
+>>>>>>> b406221 (feat: add user export route and memory management services)
 }
 
 const MessageSchema = new Schema<IMessage>({
@@ -38,8 +47,26 @@ const SessionSchema = new Schema<ISession>({
   moodBefore: { type: Number, min: 1, max: 10 },
   moodAfter: { type: Number, min: 1, max: 10 },
   messages: [MessageSchema],
+<<<<<<< HEAD
   rollingSummary: { type: String, default: '' },
   summaryMessageCount: { type: Number, default: 0, min: 0 }
+=======
+  rollingSummary: {
+    type: String,
+    set: (val: string) => encrypt(val),
+    get: (val: string) => decrypt(val)
+  },
+  status: {
+    type: String,
+    enum: ['active', 'paused_for_crisis', 'ended'],
+    default: 'active'
+  },
+  summaryCard: {
+    themes: { type: [String], default: [] },
+    reflection: { type: String, default: '' },
+    nextTopic: { type: String, default: '' }
+  }
+>>>>>>> b406221 (feat: add user export route and memory management services)
 }, {
 
   toJSON: { getters: true },

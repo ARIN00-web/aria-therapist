@@ -1,4 +1,5 @@
 import type { NextFunction, Request, Response } from 'express';
+<<<<<<< HEAD
 import { Redis } from '@upstash/redis';
 
 const RATE_LIMIT = 20;
@@ -56,4 +57,24 @@ export async function rateLimitMiddleware(req: Request, res: Response, next: Nex
     console.error('[RateLimit] Failed to enforce rate limit:', error);
     next();
   }
+=======
+
+const WINDOW_MS = 60_000;
+const MAX_REQUESTS = 60;
+const buckets = new Map<string, number[]>();
+
+export function rateLimit(req: Request, res: Response, next: NextFunction) {
+  const key = req.ip || req.socket.remoteAddress || 'unknown';
+  const now = Date.now();
+  const recent = (buckets.get(key) || []).filter((timestamp) => now - timestamp < WINDOW_MS);
+
+  if (recent.length >= MAX_REQUESTS) {
+    res.status(429).json({ error: 'Too many requests. Please slow down and try again.' });
+    return;
+  }
+
+  recent.push(now);
+  buckets.set(key, recent);
+  next();
+>>>>>>> b406221 (feat: add user export route and memory management services)
 }

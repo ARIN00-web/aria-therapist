@@ -1,4 +1,5 @@
-import { Schema, model, Document } from 'mongoose';
+import { Schema, model, Document, Types } from 'mongoose';
+import { encrypt, decrypt } from '../utils/encryption';
 
 export interface IMemoryProfile {
   recurringThemes: string[];
@@ -11,30 +12,39 @@ export interface IMemoryProfile {
 }
 
 export interface IMemory extends Document {
-  userId: Schema.Types.ObjectId;
+  userId: Types.ObjectId;
   profile: IMemoryProfile;
   lastUpdated: Date;
 }
 
+const encryptedString = {
+  type: String,
+  set: (val: string) => encrypt(val),
+  get: (val: string) => decrypt(val)
+};
+
 const MemorySchema = new Schema<IMemory>({
   userId: { type: Schema.Types.ObjectId, ref: 'User', required: true, unique: true, index: true },
   profile: {
-    recurringThemes: { type: [String], default: [] },
+    recurringThemes: { type: [encryptedString], default: [] },
     keyPeople: [{
-      name: { type: String, required: true },
-      relationship: { type: String, required: true },
-      dynamic: { type: String, default: '' }
+      name: { ...encryptedString, required: true },
+      relationship: { ...encryptedString, required: true },
+      dynamic: { ...encryptedString, default: '' }
     }],
-    triggers: { type: [String], default: [] },
+    triggers: { type: [encryptedString], default: [] },
     copingStrategies: [{
-      strategy: { type: String, required: true },
-      effectiveness: { type: String, default: 'medium' }
+      strategy: { ...encryptedString, required: true },
+      effectiveness: { ...encryptedString, default: 'medium' }
     }],
-    progressNotes: { type: [String], default: [] },
-    moodTrend: { type: String, default: '' },
-    followUpTopics: { type: [String], default: [] }
+    progressNotes: { type: [encryptedString], default: [] },
+    moodTrend: { ...encryptedString, default: '' },
+    followUpTopics: { type: [encryptedString], default: [] }
   },
   lastUpdated: { type: Date, default: Date.now }
+}, {
+  toJSON: { getters: true },
+  toObject: { getters: true }
 });
 
 export const MemoryModel = model<IMemory>('Memory', MemorySchema);

@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { SessionModel } from '../models/Session.model';
 import { withTimeout } from '../utils/withTimeout';
@@ -102,4 +103,36 @@ export async function summarizeSessionIfNeeded(sessionId: string): Promise<void>
   } catch (error) {
     console.error('[Summarizer] Failed to update rolling summary:', error);
   }
+=======
+import type { IMessage, ISession } from '../models/Session.model';
+import { callAnthropicText } from './llm.client';
+
+export async function updateRollingSummaryIfNeeded(session: ISession): Promise<void> {
+  if (session.messages.length <= 12) return;
+
+  const messagesToSummarize = session.messages.slice(0, 6);
+  const remainingMessages = session.messages.slice(6);
+  const summary = await summarizeMessages(session.rollingSummary || '', messagesToSummarize);
+
+  session.rollingSummary = summary;
+  session.messages = remainingMessages;
+  await session.save();
+}
+
+async function summarizeMessages(existingSummary: string, messages: IMessage[]): Promise<string> {
+  const transcript = messages.map((message) => `${message.role}: ${message.content}`).join('\n');
+  const generated = await callAnthropicText({
+    system: `Summarize therapy-support session messages in about 200 words.
+Capture emotions, topics, insights, current struggles, and homework. Do not diagnose.`,
+    messages: [{
+      role: 'user',
+      content: `Existing summary:\n${existingSummary || 'None'}\n\nNew messages:\n${transcript}`
+    }],
+    maxTokens: 500,
+    timeoutMs: 8_000,
+    utility: true
+  });
+
+  return generated || `${existingSummary ? `${existingSummary}\n` : ''}${transcript.slice(0, 1200)}`;
+>>>>>>> b406221 (feat: add user export route and memory management services)
 }

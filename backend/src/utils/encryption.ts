@@ -1,16 +1,15 @@
 import crypto from 'crypto';
+import { getConfig } from '../config/env';
 
 
 const getEncryptionKey = (): Buffer => {
-  const secret = process.env.ENCRYPTION_KEY;
-  if (!secret) {
-    throw new Error('ENCRYPTION_KEY environment variable is not set');
-  }
+  const secret = getConfig().encryptionKey;
   return crypto.createHash('sha256').update(secret).digest();
 };
 
-const ALGORITHM = 'aes-256-cbc';
-const IV_LENGTH = 16; 
+const ALGORITHM = 'aes-256-gcm';
+const IV_LENGTH = 12;
+const AUTH_TAG_LENGTH = 16;
 
 export function encrypt(text: string): string {
   if (!text) return text;
@@ -21,9 +20,9 @@ export function encrypt(text: string): string {
   
   let encrypted = cipher.update(text, 'utf8', 'hex');
   encrypted += cipher.final('hex');
+  const authTag = cipher.getAuthTag();
   
-  
-  return `${iv.toString('hex')}:${encrypted}`;
+  return `${iv.toString('hex')}:${authTag.toString('hex')}:${encrypted}`;
 }
 
 
@@ -33,22 +32,26 @@ export function decrypt(encryptedText: string): string {
   try {
     const key = getEncryptionKey();
     const parts = encryptedText.split(':');
-    const ivHex = parts.shift();
-    const encryptedHex = parts.join(':');
+    const [ivHex, authTagHex, encryptedHex] = parts;
 
-    if (!ivHex || !encryptedHex) {
+    if (!ivHex || !authTagHex || !encryptedHex) {
       throw new Error('Invalid encrypted format');
     }
 
     const iv = Buffer.from(ivHex, 'hex');
-    const decipher = crypto.createDecipheriv(ALGORITHM, key, iv);
+    const authTag = Buffer.from(authTagHex, 'hex');
+    const decipher = crypto.createDecipheriv(ALGORITHM, key, iv, { authTagLength: AUTH_TAG_LENGTH });
+    decipher.setAuthTag(authTag);
     
     let decrypted = decipher.update(encryptedHex, 'hex', 'utf8');
     decrypted += decipher.final('utf8');
     
     return decrypted;
   } catch (error) {
-    console.error('[Encryption Utility]: Decryption failed:', error);
+    console.error('[encryption:decrypt_failed]', {
+      timestamp: new Date().toISOString(),
+      error: error instanceof Error ? error.message : 'unknown'
+    });
 
     return '[Encrypted Content - Decryption Failed]';
   }

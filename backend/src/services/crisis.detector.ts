@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 import { GoogleGenAI } from '@google/genai';
 import { withTimeout } from '../utils/withTimeout';
 
@@ -13,18 +14,24 @@ function getGeminiClient(): GoogleGenAI {
   return ai;
 }
 
+=======
+import { callAnthropicText } from './llm.client';
+>>>>>>> b406221 (feat: add user export route and memory management services)
 
 const CRISIS_PHRASES = [
-  'want to die', 
-  'end my life', 
+  'want to die',
+  'end my life',
   'kill myself',
-  'not worth living', 
-  'self harm', 
+  'not worth living',
+  'self harm',
+  'self-harm',
   'hurt myself',
-  'no point anymore', 
+  'no point anymore',
   'better off dead',
   'suicide',
-  'wanna die'
+  'wanna die',
+  'take my life',
+  'i cannot go on'
 ];
 
 export interface CrisisResource {
@@ -39,9 +46,8 @@ export interface CrisisResponse {
   pauseSession?: boolean;
 }
 
-
 export const CRISIS_RESPONSE: Omit<CrisisResponse, 'isCrisis'> = {
-  message: `I'm really glad you shared that with me. Please reach out right now to get professional support:`,
+  message: "I'm really glad you shared that with me. Please reach out right now to get professional support:",
   resources: [
     { name: 'iCall (India)', number: '9152987821' },
     { name: 'Vandrevala Foundation', number: '1860-2662-345' },
@@ -50,19 +56,15 @@ export const CRISIS_RESPONSE: Omit<CrisisResponse, 'isCrisis'> = {
   pauseSession: true
 };
 
-
-export async function detectCrisis(message: string): Promise<CrisisResponse> {
+export function detectCrisisKeywords(message: string): CrisisResponse {
   const normalizedMessage = message.toLowerCase().trim();
-
-  
-  const containsCrisisPhrase = CRISIS_PHRASES.some(phrase => 
-    normalizedMessage.includes(phrase)
-  );
+  const containsCrisisPhrase = CRISIS_PHRASES.some((phrase) => normalizedMessage.includes(phrase));
 
   if (containsCrisisPhrase) {
     return { isCrisis: true, ...CRISIS_RESPONSE };
   }
 
+<<<<<<< HEAD
   
   if (!process.env.GEMINI_API_KEY) {
     console.warn('[Crisis Detector]: No GEMINI_API_KEY found. Skipping LLM crisis check.');
@@ -101,4 +103,28 @@ Do not write anything else. No explanation, no punctuation.`,
     
     return { isCrisis: false };
   }
+=======
+  return { isCrisis: false };
+}
+
+export async function detectCrisis(message: string): Promise<CrisisResponse> {
+  const keywordResult = detectCrisisKeywords(message);
+  if (keywordResult.isCrisis) return keywordResult;
+
+  const verdict = await callAnthropicText({
+    system: `You are a strict safety classifier for a mental health support platform.
+Return exactly YES if the message indicates immediate danger of suicide, self-harm, or acute crisis.
+Return exactly NO otherwise. Do not explain.`,
+    messages: [{ role: 'user', content: message }],
+    maxTokens: 5,
+    timeoutMs: 4_000,
+    utility: true
+  });
+
+  if (verdict?.trim().toUpperCase() === 'YES') {
+    return { isCrisis: true, ...CRISIS_RESPONSE };
+  }
+
+  return { isCrisis: false };
+>>>>>>> b406221 (feat: add user export route and memory management services)
 }
