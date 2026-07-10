@@ -10,12 +10,21 @@ import { rateLimitMiddleware } from '../middleware/rateLimit.middleware';
 import { summarizeSessionIfNeeded } from '../services/summarizer';
 import { detectCrisis } from '../services/crisis.detector';
 import { withTimeout } from '../utils/withTimeout';
+import { updateLongTermMemoryFromSession } from '../services/memory.service';
 
 const router = Router();
 const genai = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
 
+function isValidMoodScore(value: unknown): value is number {
+    return typeof value === 'number' && Number.isInteger(value) && value >= 1 && value <= 10;
+}
+
 router.post('/api/chat', authMiddleware, rateLimitMiddleware, async (req, res) => {
-    const { userId, sessionId, message } = req.body;
+    const { userId, sessionId, message } = req.body as {
+        userId?: string;
+        sessionId?: string;
+        message?: string;
+    };
 
     if (!userId || !sessionId || !message) {
         return res.status(400).json({ error: 'Missing required parameters' });
@@ -45,6 +54,9 @@ router.post('/api/chat', authMiddleware, rateLimitMiddleware, async (req, res) =
         if (!user) return res.status(404).json({ error: 'User not found' });
         if (session.userId.toString() !== userObjectId.toHexString()) {
             return res.status(404).json({ error: 'Session not found' });
+        }
+        if (session.endedAt) {
+            return res.status(409).json({ error: 'Session has already ended' });
         }
 
         console.log(`[Chat] Running crisis detection for session ${sessionId}`);
@@ -106,6 +118,69 @@ router.post('/api/chat', authMiddleware, rateLimitMiddleware, async (req, res) =
 
     } catch (error) {
         console.error('[Chat] Route failed:', error);
+        return res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+router.post('/api/session/end', authMiddleware, rateLimitMiddleware, async (req, res) => {
+    const { userId, sessionId, moodAfter } = req.body as {
+        userId?: string;
+        sessionId?: string;
+        moodAfter?: number;
+    };
+
+    if (!userId || !sessionId || moodAfter === undefined) {
+        return res.status(400).json({ error: 'Missing required parameters' });
+    }
+
+    if (req.user?.id !== userId) {
+        return res.status(403).json({ error: 'Authenticated user does not match request userId' });
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(userId) || !mongoose.Types.ObjectId.isValid(sessionId)) {
+        return res.status(400).json({ error: 'Invalid userId or sessionId' });
+    }
+
+    if (!isValidMoodScore(moodAfter)) {
+        return res.status(400).json({ error: 'moodAfter must be an integer between 1 and 10' });
+    }
+
+    try {
+        console.log(`[SessionEnd] Validated request for session ${sessionId}`);
+        const userObjectId = new mongoose.Types.ObjectId(userId);
+        const sessionObjectId = new mongoose.Types.ObjectId(sessionId);
+
+        const session = await SessionModel.findById(sessionObjectId);
+
+        if (!session || session.userId.toString() !== userObjectId.toHexString()) {
+            return res.status(404).json({ error: 'Session not found' });
+        }
+
+        if (session.endedAt) {
+            return res.status(409).json({ error: 'Session has already ended' });
+        }
+
+        session.moodAfter = moodAfter;
+        session.endedAt = new Date();
+        await session.save();
+        console.log(`[SessionEnd] Session ${sessionId} marked as ended`);
+
+        void updateLongTermMemoryFromSession(userId, sessionId)
+            .then(() => {
+                console.log(`[SessionEnd] Long-term memory update completed for session ${sessionId}`);
+            })
+            .catch((error) => {
+                console.error(`[SessionEnd] Long-term memory update failed for session ${sessionId}:`, error);
+            });
+
+        return res.json({
+            message: 'Session ended successfully',
+            sessionId,
+            endedAt: session.endedAt,
+            moodAfter: session.moodAfter,
+        });
+    } catch (error) {
+        console.error('[SessionEnd] Route failed:', error);
         return res.status(500).json({ error: 'Internal server error' });
     }
 });

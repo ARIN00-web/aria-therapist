@@ -3,8 +3,8 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import dotenv from 'dotenv';
-import mongoose from 'mongoose';
-import router from './routes/chat.route';
+import chatRouter from './routes/chat.route';
+import authRouter from './routes/auth.route';
 import connectDB from './database/connection.database';
 import { detectCrisis } from './services/crisis.detector';
 
@@ -16,7 +16,8 @@ const PORT = process.env.PORT || 5001;
 app.use(helmet());
 app.use(cors());
 app.use(express.json());
-app.use(router);
+app.use(authRouter);
+app.use(chatRouter);
 
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', message: 'Aria Therapist Backend is running' });
@@ -35,8 +36,9 @@ app.post('/test-crisis', async (req, res): Promise<void> => {
     }
     const result = await detectCrisis(message);
     res.json(result);
-  } catch (error: any) {
-    res.status(500).json({ error: error.message || 'An error occurred' });
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'An error occurred';
+    res.status(500).json({ error: errorMessage });
   }
 });
 
