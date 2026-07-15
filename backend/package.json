@@ -6,16 +6,19 @@
     "seed": "ts-node src/seed.ts",
     "build": "tsc",
     "start": "node dist/index.js",
-    "dev": "ts-node-dev --respawn --transpile-only src/index.ts"
+    "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
+    "ingest": "npm run build && node dist/services/rag.ingest.js"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "description": "",
   "dependencies": {
-    "@google/genai": "^2.6.0",
+    "@google/genai": "^2.11.0",
     "@google/generative-ai": "^0.24.1",
+    "@types/pdf-parse": "^1.1.5",
     "@upstash/redis": "^1.38.0",
+    "@xenova/transformers": "^2.17.2",
     "bcrypt": "^6.0.0",
     "cors": "^2.8.6",
     "crypto": "^1.0.1",
@@ -23,7 +26,8 @@
     "express": "^5.2.1",
     "helmet": "^8.2.0",
     "jsonwebtoken": "^9.0.3",
-    "mongoose": "^9.6.3"
+    "mongoose": "^9.6.3",
+    "pdf-parse": "^2.4.5"
   },
   "devDependencies": {
     "@types/bcrypt": "^6.0.0",

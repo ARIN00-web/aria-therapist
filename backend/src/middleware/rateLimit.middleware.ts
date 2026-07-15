@@ -1,70 +1,61 @@
 import type { NextFunction, Request, Response } from 'express';
-<<<<<<< HEAD
 import { Redis } from '@upstash/redis';
 
-const RATE_LIMIT = 20;
-const WINDOW_SECONDS = 60;
+const WINDOW_MS = 60_000;
+const MAX_REQUESTS = 60;
+
+const buckets = new Map<string, number[]>();
 
 let redisClient: Redis | null = null;
+let checkedRedis = false;
 
 function getRedisClient(): Redis | null {
-  if (redisClient) {
-    return redisClient;
-  }
+  if (checkedRedis) return redisClient;
+  checkedRedis = true;
 
   const url = process.env.UPSTASH_REDIS_REST_URL;
   const token = process.env.UPSTASH_REDIS_REST_TOKEN;
 
   if (!url || !token) {
-    console.warn('[RateLimit] Upstash Redis credentials are not configured. Skipping rate limiting.');
+    console.warn('[RateLimit] Upstash Redis credentials not configured. Using in-memory fallback.');
     return null;
   }
 
-  redisClient = new Redis({ url, token });
-  return redisClient;
+  try {
+    redisClient = new Redis({ url, token });
+    return redisClient;
+  } catch (error) {
+    console.error('[RateLimit] Failed to initialize Redis client:', error);
+    return null;
+  }
 }
 
-export async function rateLimitMiddleware(req: Request, res: Response, next: NextFunction): Promise<void> {
-  const userId = req.user?.id;
-
-  if (!userId) {
-    res.status(401).json({ error: 'Authenticated user not found for rate limiting' });
-    return;
-  }
-
+export async function rateLimit(req: Request, res: Response, next: NextFunction): Promise<void> {
   const redis = getRedisClient();
-  if (!redis) {
-    next();
-    return;
-  }
+  const ip = req.ip || req.socket.remoteAddress || 'unknown';
+  const userId = (req as any).userId || (req as any).user?.id;
+  const key = userId ? `rate-limit:user:${userId}` : `rate-limit:ip:${ip}`;
 
-  const key = `rate-limit:${userId}`;
+  if (redis) {
+    try {
+      const requests = await redis.incr(key);
 
-  try {
-    const requests = await redis.incr(key);
+      if (requests === 1) {
+        await redis.expire(key, WINDOW_MS / 1000);
+      }
 
-    if (requests === 1) {
-      await redis.expire(key, WINDOW_SECONDS);
-    }
+      if (requests > MAX_REQUESTS) {
+        res.status(429).json({ error: 'Too many requests. Please slow down and try again.' });
+        return;
+      }
 
-    if (requests > RATE_LIMIT) {
-      res.status(429).json({ error: 'Rate limit exceeded. Please try again in a minute.' });
+      next();
       return;
+    } catch (error) {
+      console.error('[RateLimit] Redis rate limit failed, falling back to in-memory:', error);
     }
-
-    next();
-  } catch (error) {
-    console.error('[RateLimit] Failed to enforce rate limit:', error);
-    next();
   }
-=======
 
-const WINDOW_MS = 60_000;
-const MAX_REQUESTS = 60;
-const buckets = new Map<string, number[]>();
-
-export function rateLimit(req: Request, res: Response, next: NextFunction) {
-  const key = req.ip || req.socket.remoteAddress || 'unknown';
   const now = Date.now();
   const recent = (buckets.get(key) || []).filter((timestamp) => now - timestamp < WINDOW_MS);
 
@@ -76,5 +67,4 @@ export function rateLimit(req: Request, res: Response, next: NextFunction) {
   recent.push(now);
   buckets.set(key, recent);
   next();
->>>>>>> b406221 (feat: add user export route and memory management services)
 }

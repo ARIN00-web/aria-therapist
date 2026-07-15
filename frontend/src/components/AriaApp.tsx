@@ -129,10 +129,15 @@ export function AriaApp() {
 
   function appendAssistantText(token: string) {
     setMessages((current) => {
-      const next = [...current];
-      const last = next[next.length - 1];
-      if (last?.role === 'assistant') last.content += token;
-      return next;
+      if (current.length === 0) return current;
+      const last = current[current.length - 1];
+      if (last?.role === 'assistant') {
+        return [
+          ...current.slice(0, -1),
+          { ...last, content: last.content + token }
+        ];
+      }
+      return current;
     });
   }
 

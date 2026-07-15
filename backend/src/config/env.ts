@@ -4,10 +4,10 @@ export interface AppConfig {
   frontendOrigin: string;
   encryptionKey: string;
   authSecret: string;
-  anthropicApiKey?: string;
-  anthropicChatModel: string;
-  anthropicUtilityModel: string;
-  openAiApiKey?: string;
+  geminiApiKey?: string;
+  deepseekApiKey?: string;
+  openrouterApiKey?: string;
+  openrouterModel: string;
   qdrantUrl?: string;
   qdrantApiKey?: string;
   qdrantCollection: string;
@@ -23,16 +23,24 @@ function requireEnv(name: string): string {
 }
 
 export function getConfig(): AppConfig {
+  const geminiApiKey = process.env.GEMINI_API_KEY?.trim();
+  const deepseekApiKey = process.env.DEEPSEEK_API_KEY?.trim();
+  const openrouterApiKey = process.env.OPENROUTER_API_KEY?.trim();
+
+  if (!geminiApiKey && !deepseekApiKey && !openrouterApiKey) {
+    throw new Error('Either GEMINI_API_KEY, DEEPSEEK_API_KEY, or OPENROUTER_API_KEY environment variable is required');
+  }
+
   return {
     port: Number(process.env.PORT || 5001),
     mongoUri: requireEnv('MONGODB_URI'),
     frontendOrigin: process.env.FRONTEND_ORIGIN || 'http://localhost:3000',
     encryptionKey: requireEnv('ENCRYPTION_KEY'),
     authSecret: requireEnv('AUTH_SECRET'),
-    anthropicApiKey: process.env.ANTHROPIC_API_KEY,
-    anthropicChatModel: process.env.ANTHROPIC_CHAT_MODEL || 'claude-3-5-sonnet-latest',
-    anthropicUtilityModel: process.env.ANTHROPIC_UTILITY_MODEL || 'claude-3-5-haiku-latest',
-    openAiApiKey: process.env.OPENAI_API_KEY,
+    geminiApiKey,
+    deepseekApiKey,
+    openrouterApiKey,
+    openrouterModel: process.env.OPENROUTER_MODEL || 'meta-llama/llama-3.3-70b-instruct:free',
     qdrantUrl: process.env.QDRANT_URL,
     qdrantApiKey: process.env.QDRANT_API_KEY,
     qdrantCollection: process.env.QDRANT_COLLECTION || 'therapy_knowledge',

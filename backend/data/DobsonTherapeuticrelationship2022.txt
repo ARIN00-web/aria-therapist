@@ -1,0 +1,348 @@
+Therapeutic Relationship
+Keith S. Dobson, University of Calgary
+This article addresses the important role of the therapeutic relationship in cognitive- behavioral therapy (CBT). As has been
+noted from the inception of CBT, there are critical features of both the therapist and the relationship that optimize the like-
+lihood of therapeutic success, and this article brieﬂy describes these features. It is further argued that a successful thera-
+peutic relationship in CBT is not static but is ﬂexible and adaptive both across and within clients, as their needs and
+concerns vary. A positive therapeutic relationship is viewed within CBT as a necessary but insufﬁcient condition for
+change, as the relationship serves as a foundation upon which interventions are scaffolded, but that the client’s response
+to various interventions itself shapes the interactions between therapist and client. Finally, it is argued that the key ther-
+apeutic ingredients of CBT are largely teachable, and the article provides several suggestions to promote an effective ther-
+apeutic relationship in CBT.
+T
+HIS ARTICLE addresses the important role of the
+therapeutic relationship in cognitive-behavioral
+therapy (CBT). As has been noted from the inception
+of CBT and the seminal work of Aaron Beck and col-
+leagues ( Beck et al., 1979 ), there are critical features
+of both the therapist and the relationship between
+the therapist and client that optimize the likelihood
+of therapeutic success. After a brief review of the com-
+mon features of a positive therapeutic relationship in
+psychotherapy, this article brieﬂy describes these fea-
+tures as found in CBT and the work of Aaron Beck,
+in particular.
+The therapeutic relationship has been a matter of
+discussion since the inception of psychotherapy. As
+early as the work of Sigmund Freud, there was a recog-
+nition that although the successful resolution of psy-
+choanalytic therapy related to uncovering
+unconscious processes, this process rested on a
+dynamic interplay between the human encounter
+involved in a therapeutic relationship as well as the
+judicious use of techniques such as free association
+or dream analysis ( Balint, 1950 ). Existential psycho-
+analysis reﬂected this same recognition:
+Apart from ... exceptional circumstances, the two
+extremes, encounter and technique, seem to be a mat-
+ter of theoretical importance only. Live practice hovers
+between the extreme poles. Neither should be looked
+upon contemptuously or disparagingly. ( Frankl, 1961,
+p. 81 )
+In somewhat of a contrast to the above arguments,
+and in a partial response to the developments of behav-
+iorism in the period following the Second World War,
+Carl Rogers wrote a highly inﬂuential article in which
+he argued that the necessary and sufﬁcient conditions
+for therapeutic change included a congruent therapist,
+the therapist experiencing unconditional positive
+regard for the client, the therapist experiencing an
+empathic understanding of the client, and the commu-
+nication of these experiences to the client ( Rogers,
+1957). In a further and more direct expression of these
+same ideas, he wrote:
+The warm, subjective encounter of two persons is more
+effective in facilitating change than the most precise set
+of techniques growing out of learning therapy or oper-
+ant conditioning. ( Rogers, 1961, p. 93 )
+As has been discussed elsewhere, the early develop-
+ment of Beck’s cognitive theory and therapy grew pri-
+marily from two sources ( Dozois et al., 2017 ). One
+early inﬂuence was the training of Dr. Aaron Beck in
+psychoanalysis, and its reliance on both relationship
+and technique in psychotherapy. The other was the
+use of empiricism and the behavioral tradition, with
+1077-7229/20//C2112022 Association for Behavioral and Cognitive
+Therapies. Published by Elsevier Ltd. All rights reserved.
+Keywords: therapeutic relationship; cognitive-behavioral therapy;
+intervention; collaborative empiricism; socratic dialogue
+www.elsevier.com/locate/cabp
+Available online at www.sciencedirect.com
+ScienceDirect
+Cognitive and Behavioral Practice 29 (2022) 541–544
+
+its emphasis on measurable change, and its consequent
+focus on the methods or techniques that optimize (ob-
+servable) change. From its inception, cognitive therapy
+therefore highlighted the synergistic role of the thera-
+peutic relationship and the therapy techniques and
+methods to optimize treatment outcomes. Indeed,
+the ﬁrst complete treatment manual based on cogni-
+tive therapy ( Beck et al., 1979 ) devoted an entire chap-
+ter to the nature of the therapeutic relationship in
+treating depression. This chapter highlights such key
+features of a successful cognitive therapist as warmth,
+accurate empathy, and genuineness, and also eluci-
+dates critical aspects of the therapeutic relationship,
+including trust, rapport, and therapeutic collabora-
+tion. Elsewhere in this same volume it is suggested that
+the therapist can encourage the client to reﬂect on the
+issues raised in the therapy sessions, in what can be
+considered a precursor to what is now referred to as
+Socratic dialogue ( Beck, 2005; Dobson & Dobson,
+2017; Kazantzis et al., 2017 ).
+Discussion of the nature of the therapeutic relation-
+ship also features in many other books related to cogni-
+tive therapy for various disorders, including works by
+Beck (1988, 1999; Beck & Emery, 1985; Beck et al.,
+1993; Beck et al., 2008; Beck et al., 2015 ) and many
+other books related to CBT more generally (cf. Arntz
+& Jacob, 2012; Beck, 2021; Dattilio & Freeman, 1994;
+Dobson & Dobson, 2017; Dugas & Robichaud, 2007;
+Fairburn, 2008; Segal et al., 2012 ).
+Most of the discussions of the therapeutic relation-
+ship in cognitive and cognitive-behavioral therapies
+converge on three primary themes. The ﬁrst is that a
+constructive and successful relationship is integral to
+positive results with CBT ( Okamoto et al., 2019 ). In
+this regard, the research literature in the general ﬁeld
+of psychotherapy ( Norcross & Wampold, 2011 ) has
+been highly informative, as it has demonstrated that
+such features as congruence, authenticity, empathy,
+positive regard, and a positive alliance/working rela-
+tionship are important features of successful therapeu-
+tic relationships across therapeutic modalities. Within
+the ﬁeld of CBT these constructs are often reﬂected
+in two primary features of the therapy relationship: col-
+laborative empiricism and the Socratic process
+(Kazantzis, et al, 2017 ). The ﬁrst essential aspect of
+the therapeutic relationship in CBT is collaborative
+empiricism; the therapist and client are encouraged
+to work together as a team to understand and then
+modify problems through an iterative process of
+designing assignments that take place in the time
+between therapy appointments, and to then adjust
+these assignments and tasks, as the evidence emerges
+as to what changes are most adaptive in the client’s life.
+The process of Socratic dialogue (see also J. Beck,
+2021; Dobson & Dobson, 2017 ) is a respectful style of
+interaction, in which the therapist does not assume
+that they “know best,” but rather that they can learn
+to understand the client based on inductive questions
+and reﬂective dialogue, so that the client and therapist
+together gain an optimal understanding of the issues
+that have brought the client to therapy, and that can
+then suggest roads for improvement. Although there
+are times and circumstances in CBT when the therapist
+may need to be more confrontive ( Linehan, 2014;
+Young, et al, 2003 ), this interactive and dialogical style
+is typically provided, based on the case conceptualiza-
+tion and awareness of what may help the client best
+reach their treatment goals.
+Second, the literature has converged on the impor-
+tance of the optimal therapy relationship as one that is
+dynamic and ﬂexible ( Castonguay et al., 2018 ). For
+example, effective therapists are responsive to different
+interpersonal aspects and needs of the client across dif-
+ferent clients, problems, and diagnoses (see Norcross
+& Wampold, 2011 ), remaining adaptable to change
+over the course of the treatment for a given client or
+in response to issues such as “therapeutic ruptures.”
+As an example, when working with a more depressed
+client the CBT therapist may need to provide more
+structure and encouragement for the client to try ideas
+in the early stages of treatment, but as the client hope-
+fully responds and becomes less depressed, the effec-
+tive therapist will invite the client to take more of a
+coleadership role, and to perhaps design their own
+homework assignments ( Beck et al., 1979 ). As another
+example, clients may have had difﬁcult relationships in
+their past; if so, it would be unrealistic to think that
+they will not bring relationship concerns or issues into
+the therapy situation. Thus, effective therapists need to
+gauge the expectations, social skills, interpersonal
+styles, and relationship affects that the client brings
+to the treatment room, and to adjust their style of inter-
+action accordingly.
+Third, and perhaps somewhat controversially, I sug-
+gest that the data strongly supports the conclusion that
+a positive therapeutic relationship is a necessary but
+insufﬁcient condition of therapeutic change in CBT.
+Indeed, the ﬁeld of CBT has underscored the critical
+role of many therapeutic techniques, including but cer-
+tainly not limited to activity scheduling, exposure to
+avoided situations and stimuli, skills training, cognitive
+restructuring, mindfulness training, and the examina-
+tion of core beliefs in relationship to presenting prob-
+lems. It is also to my mind incontrovertible that the
+success of cognitive therapy and CBT relies in part on
+what happens in the therapy room, but even more so
+on what happens between sessions, when the client
+takes the homework assignments and implements
+542 Dobson
+them in their life ( Kazantzis et al., 2005, 2016;
+Kazantzis & Miller, 2021 ). The precise value of a given
+technique or homework assignment will depend on a
+variety of factors, including the presenting problem
+(s) of the client, the stage of therapy, the skill of the
+therapist to effectively deploy the technique, the will-
+ingness of the client to attempt the method, and of
+course the outcome of the use of the technique. Suc-
+cessful CBT therapists have a large “toolkit” of tech-
+niques that they can go to, to select, adapt, and
+deploy those interventions that have the highest likeli-
+hood to lead to successful client outcomes.
+One of the encouraging aspects of CBT is that many
+aspects of an effective therapeutic relationship can be
+taught. Psychopathology courses are one strategy to
+effectively discuss client presentation from a diagnostic
+perspective, and to encourage the emerging therapist
+to consider individual differences across clients. Case
+conceptualization is a fundamental CBT skill
+(Dobson & Dobson, 2017; Kazantzis et al., 2017 ) that
+helps the therapist reﬂect on the various types of prob-
+lems that clients can present with, and the moderating
+factors that inﬂuence this presentation. Many of the
+more explicit skill sets involved in the development
+of the CBT “tool kit” are also highly teachable. Many
+excellent manuals exist that describe CBT techniques
+and how they can be effectively administered. There
+are workshops on CBT training that occur in many
+places of the world, and some that are offered virtually
+and as such are universally available.
+As the evidence continues to accumulate, the ﬁeld
+of cognitive-behavioral therapy is able to provide more
+explicit guidance about the critical relationship factors
+in successful therapy ( Kazantzis et al., 2016, 2018) .
+Thus, while there are still open questions about
+whether any novice therapist can be trained to become
+a competent CBT therapist, and there are ongoing
+studies about whether it is more important to be adher-
+ent to methods of CBT than to be maximally compe-
+tent and ﬂexible in the delivery of methods, the
+extant literature strongly suggests that therapist can
+learn many of the key elements of the approach. The
+emergence of training guidelines (e.g., Ashbaugh
+et al., 2021 ) and volumes about training ( Sudak
+et al., 2015 ) strongly suggest that the development of
+a successful therapeutic relationship is itself amenable
+to CBT principles.
+In summary, this brief article has argued that there
+has been a long-standing awareness in the ﬁeld of psy-
+chotherapy that a positive therapeutic relationship is
+pivotal to achieve desired client outcomes. This recog-
+nition also can be found in the earliest of the works in
+the ﬁeld of cognitive therapy and continues to be
+emphasized in recent works (cf. Beck, 2021; Dobson
+& Dobson, 2017; Kazantzis et al., 2017 ). Indeed, any-
+one who had the privilege of seeing Aaron Beck in per-
+son engaged in cognitive therapy with a client, or who
+has viewed any of his training ﬁlms, can witness his
+remarkable interpersonal skills, and the ability he
+had to adapt to the client’s current state and clinical
+needs. The ﬁeld of psychotherapy has been enriched
+by this awareness of the critical role of the interper-
+sonal process, and through both the clinical demon-
+stration of these issues as well as their formalization
+in theory and research.
+References
+Arntz, A., & Jacob, G. A. (2012). Schema therapy in practice. An
+introductory guide to the Schema Mode Approach . Wiley .
+Ashbaugh, A. R., Cohen, J. N., & Dobson, K. S. (2021). Training in
+cognitive behavioural therapy (CBT): National training
+guidelines from the Canadian Association of Cognitive and
+Behavioural Therapies. Canadian Psychology/Psychologie canadienne,
+62(3), 239–251. https://doi.org/10.1037/cap0000224.
+Balint, M. (1950). Changing therapeutical aims and techniques in
+psycho-analysis. International Journal of Psychoanalysis, 31 ,
+117–124
+.
+Beck, A. T. (1988). Love is never enough . Harper and Row .
+Beck, A. T. (1999). Prisoners of hate: The cognitive bases of anger, hostility
+and violence . Harper & Collins .
+Beck, A. T., Davis, D. D., & Freeman, A. (2015). Cognitive therapy of
+personality disorders (3rd ed.). Guilford Press .
+Beck, A. T., & Emery, G. (1985). Anxiety disorders and phobias: A
+cognitive perspective . Basic Books .
+Beck, A. T., Grant, P., Rector, N. A., & Stolar, N. (2008).
+Schizophrenia: Cognitive theory, research, and therapy . Guilford Press .
+Beck, A. T., Rush, A. J., Shaw, B. F., & Emery, G. (1979). Cognitive
+therapy of depression . Guilford Press .
+Beck, A. T., Wright, F. D., Newman, C. F., & Liese, B. S. (1993).
+Cognitive therapy of substance abuse . Guilford Press .
+Beck, J. S. (2005). Cognitive therapy for challenging problems: What to do
+when the basics don’t work . Guilford Press .
+Beck, J. S. (2021). Cognitive behavior therapy: Basics and beyond (3rd
+ed.). Guilford Press .
+Castonguay, L. G., Youn, S. Y., Xiao, H., & McAleavey, A. A. (2018).
+The therapeutic relationship: A warm, important, and
+potentially mutative factor in cognitive behavior therapy. In O.
+Tishby & H. Wiseman (Eds.), Developing the therapeutic
+relationship: Integrating case studies, research and practice
+(pp. 157–179). American Psychological Association. https://
+doi.org/10.1037/0000093-008.
+Dattilio, F. M., & Freeman, A. (Eds.). (1994). Cognitive-behavioral
+strategies in crisis intervention . Guilford Press .
+Dobson, D., & Dobson, K. (2017). Evidence-based practice of cognitive-
+behavioral therapy (2nd ed.). Guilford Press .
+Dozois, D. J. A., Dobson, K. S., & Rnic, K. (2017). Historical and
+philosophical bases of the cognitive- behavioral therapies. In K.
+S. Dobson & D. J. A. Dozois (Eds.), Handbook of the cognitive-
+behavioral therapies (4th ed., pp. 3–31). Guilford Press .
+Dugas, M. J., & Robichaud, M. (2007). Cognitive-behavioral treatment
+for Generalized Anxiety Disorder: From science to practice . Routledge .
+Fairburn, C. G. (2008). Cognitive behaviour therapy and eating disorders .
+Guilford Press .
+Frankl, V. E. (1961). Psychotherapy and existentialism: Selected papers on
+Logotherapy. Penguin Books .
+543Therapeutic Relationship
+Kazantzis, N., Dattilio, F., & Dobson, K. S. (2017). The therapeutic
+relationship in cognitive-behavioral therapy: A clinician’s guide .
+Guilford Press .
+Kazantzis, N., Deane, F. P., Ronan, K. R., & L’Abate, L. (Eds.). (2005).
+Using homework assignments in cognitive behavior therapy. Routledge/
+Taylor & Francis Group.
+Kazantzis, N., Luong, H. K., Usatoff, A. S., Impala, T., Yew, R. Y., &
+Hofmann, S. G. (2018). The processes of cognitive behavioral
+therapy: A review of meta-analyses. Cognitive Therapy and Research,
+42(4), 349–357. https://doi.org/10.1007/s10608-018-9920-y.
+Kazantzis, N., & Miller, A. R. (2021). A comprehensive model of
+homework in cognitive behavior therapy. Cognitive Therapy and
+Research, 46 , 247–257. https://doi.org/10.1007/s10608-021-
+10247-z.
+Kazantzis, N., Whittington, C., Zelencich, L., Kyrios, M., Norton, P.
+J., & Hofmann, S. G. (2016). Quantity and quality of homework
+compliance: A Meta-analysis of relations with outcome in
+Cognitive behavior therapy. Behavior Therapy, 47 (5), 755–772.
+https://doi.org/10.1016/j.beth.2016.05.002.
+Linehan, M. M. (2014). DBT skills training manual (2nd ed.).
+Guilford Press .
+Norcross, J. C., & Wampold, B. E. (2011). Evidence-based therapy
+relationships: Research conclusions and clinical practices. In J.
+C. Norcross (Ed.), Psychotherapy relationships that work: Evidence-
+based responsiveness (pp. 423–430). Oxford University Press.
+https://doi.org/10.1093/acprof:oso/9780199737208.003.0021.
+Okamoto, A., Dattillio, F. M., Dobson, K. S., & Kazantzis, N. (2019).
+The therapeutic relationship in cognitive-behavioral therapy:
+Essential features and common challenges. Practice Innovations, 4
+(2), 112–123. https://doi.org/10.1037/pri0000088.
+Rogers, C. R. (1957). The necessary and sufﬁcient conditions of
+therapeutic personality change. Journal of Consulting Psychology,
+21, 95–103.
+Rogers, C. R. (1961). Two divergent trends. In R. May (Ed.),
+Existential psychology (pp. 85–93). Random House .
+Segal, Z. V., Williams, J. M. G., & Teasdale, J. D. (2012). Mindfulness-
+based cognitive therapy for depression (2nd ed.). Guilford Press .
+Sudak, D. M., Codd, T., Ludgate, J. W., Sokol, L., Fox, M. G., Reiser,
+R. P., & Milne, D. L. (2015). Teaching and supervising cognitive
+behavioral therapy . Wiley. http://dx.doi.org/10.1002/
+9781119179948.
+Young, J. E., Klosko, J. S., & Weishaar, M. E. (2003). Schema therapy:
+A practitioner’s guide. Guilford Press .
+Address correspondence to Keith S. Dobson, Ph.D., Department
+of Psychology, University of Calgary, Calgary, Alberta T2N 1N4. e-
+mail: ksdobson@ucalgary.ca.
+Received: December 13, 2021
+Accepted: February 8, 2022
+Available online 16 February 2022
+544 Dobson

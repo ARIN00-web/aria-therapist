@@ -1,8 +1,13 @@
-<<<<<<< HEAD
-import {ISession} from '../models/Session.model';
-import {IMemory} from '../models/Memory.model';
-import {IUser} from '../models/User.model';
+import { Types } from 'mongoose';
+import { MemoryModel, type IMemoryProfile } from '../models/Memory.model';
+import { SessionModel } from '../models/Session.model';
+import { UserModel } from '../models/User.model';
+import type { ChatMessage } from './llm.client';
 
+export interface TherapyContext {
+  systemPrompt: string;
+  messages: ChatMessage[];
+}
 
 const AI_PERSONA = `
 You are Aria, an AI emotional support companion.
@@ -33,6 +38,7 @@ Your goal is not to solve every problem, but to help users feel heard, understoo
 Draw naturally from:
 - Person-Centred Therapy
 - Cognitive Behavioural Therapy (CBT)
+- Dialectical Behaviour Therapy (DBT)
 - Acceptance and Commitment Therapy (ACT)
 - Mindfulness
 - Motivational Interviewing
@@ -71,59 +77,6 @@ If a conversation involves possible immediate danger or crisis, respond with war
 A successful response leaves the user feeling more understood, more emotionally aware, and better able to take one small next step.
 `;
 
-export const buildContext = async (session: ISession, memory: IMemory | null, user: IUser) => {
-  const persona = AI_PERSONA;
-  const preferredModality = user.preferredModality
-    ? `Preferred modality: ${user.preferredModality}`
-    : null;
-
-  const longTermMemory = memory ? [
-    "## Long-Term Memory",
-    memory.profile.recurringThemes.length ? `Recurring themes: ${memory.profile.recurringThemes.join(', ')}` : null,
-    memory.profile.keyPeople.length ? `Important people: ${memory.profile.keyPeople.map(({ name, relationship, dynamic }) => `${name} is the user's (${relationship}) and is generally ${dynamic}`).join(', ')}` : null,
-    memory.profile.triggers.length ? `Known triggers: ${memory.profile.triggers.join(', ')}` : null,
-    memory.profile.copingStrategies.length ? `Helpful coping strategies: ${memory.profile.copingStrategies.map(({ strategy, effectiveness }) => `${strategy} has been ${effectiveness}`).join(', ')}` : null,
-    memory.profile.progressNotes.length ? `Recent progress: ${memory.profile.progressNotes.join(', ')}` : null,
-    memory.profile.moodTrend ? `Overall mood trend: ${memory.profile.moodTrend}` : null,
-    memory.profile.followUpTopics.length ? `Suggested follow-up topics: ${memory.profile.followUpTopics.join(', ')}` : null,
-  ] : ["## Long-Term Memory", "This is a new user. No long-term memory exists yet."];
-
-  const context = [
-    persona,
-    "## User Information",
-    `Name: ${user.name}`,
-    preferredModality,
-    "",
-    "## Tier 2: Current Session Summary",
-    `Session started: ${session.startedAt.toLocaleDateString()}`,
-    session.moodBefore ? `Mood at session start: ${session.moodBefore}` : null,
-    session.rollingSummary
-      ? `Session summary so far: ${session.rollingSummary}`
-      : "This is the beginning of the session. No summary yet.",
-    "",
-    ...longTermMemory,
-    "",
-    "Use this information only as background context.",
-    "Do not repeat it verbatim.",
-    "Naturally remember relevant details when they help the conversation.",
-  ]
-  .filter(Boolean)
-  .join("\n");
-
-  return context;
-};
-=======
-import { Types } from 'mongoose';
-import { MemoryModel, type IMemoryProfile } from '../models/Memory.model';
-import { SessionModel } from '../models/Session.model';
-import { UserModel } from '../models/User.model';
-import type { ChatMessage } from './llm.client';
-
-export interface TherapyContext {
-  systemPrompt: string;
-  messages: ChatMessage[];
-}
-
 export async function buildTherapyContext(
   userId: string,
   sessionId: string,
@@ -140,47 +93,58 @@ export async function buildTherapyContext(
   }
 
   const profile = memory?.profile || emptyProfile();
+  
   const messages = session.messages.slice(-12).map((message) => ({
     role: message.role,
     content: message.content
   }));
 
+  const preferredModality = user.preferredModality
+    ? `Preferred modality: ${user.preferredModality}`
+    : null;
+
+  const longTermMemoryBlock = [
+    "## Long-Term Memory Profile",
+    profile.recurringThemes.length ? `Recurring themes: ${profile.recurringThemes.join(', ')}` : null,
+    profile.keyPeople.length ? `Important people: ${profile.keyPeople.map((person) => `${person.name} (${person.relationship}: ${person.dynamic})`).join('; ')}` : null,
+    profile.triggers.length ? `Known triggers: ${profile.triggers.join(', ')}` : null,
+    profile.copingStrategies.length ? `Helpful coping strategies: ${profile.copingStrategies.map((item) => `${item.strategy} (${item.effectiveness})`).join('; ')}` : null,
+    profile.progressNotes.length ? `Recent progress: ${profile.progressNotes.join('; ')}` : null,
+    profile.moodTrend ? `Overall mood trend: ${profile.moodTrend}` : null,
+    profile.followUpTopics.length ? `Suggested follow-up topics: ${profile.followUpTopics.join(', ')}` : null,
+  ].filter(Boolean).join('\n');
+
+  const clinicalContextBlock = clinicalContext.length
+    ? `## Relevant Clinical reference Context:\n${clinicalContext.map((chunk, index) => `${index + 1}. ${chunk}`).join('\n')}`
+    : '## Relevant Clinical reference Context:\nnone retrieved.';
+
+  const systemPrompt = [
+    AI_PERSONA,
+    "## User Information",
+    `Name: ${user.name}`,
+    preferredModality,
+    "",
+    "## Current Session Summary (Tier 2)",
+    session.moodBefore ? `Mood at session start: ${session.moodBefore}/10` : null,
+    session.rollingSummary
+      ? `Session summary so far: ${session.rollingSummary}`
+      : "This is the beginning of the session. No summary yet.",
+    "",
+    longTermMemoryBlock,
+    "",
+    clinicalContextBlock,
+    "",
+    "Use this information only as background context.",
+    "Do not repeat it verbatim.",
+    "Naturally remember relevant details when they help the conversation.",
+  ]
+  .filter(Boolean)
+  .join("\n");
+
   return {
-    systemPrompt: [
-      personaBlock(user.name, user.preferredModality),
-      profileBlock(user.name, profile),
-      sessionBlock(session.rollingSummary || ''),
-      clinicalContextBlock(clinicalContext)
-    ].join('\n\n'),
+    systemPrompt,
     messages
   };
-}
-
-function personaBlock(name: string, modality: string): string {
-  return `You are Aria, a warm AI emotional support companion for ${name}.
-You are not a licensed therapist and must not diagnose, prescribe, or replace professional care.
-Use ${modality} when helpful, with reflective listening, tentative emotion naming, and one question per response.
-Match the user's response length. Never ask multiple questions at once. Encourage professional support when appropriate.`;
-}
-
-function profileBlock(name: string, profile: IMemoryProfile): string {
-  return `What you know about ${name}:
-Recurring themes: ${profile.recurringThemes.join(', ') || 'none yet'}
-Key people: ${profile.keyPeople.map((person) => `${person.name} (${person.relationship}: ${person.dynamic})`).join('; ') || 'none yet'}
-Triggers: ${profile.triggers.join(', ') || 'none yet'}
-Coping strategies: ${profile.copingStrategies.map((item) => `${item.strategy} (${item.effectiveness})`).join('; ') || 'none yet'}
-Progress notes: ${profile.progressNotes.join('; ') || 'none yet'}
-Mood trend: ${profile.moodTrend || 'unknown'}
-Follow up on: ${profile.followUpTopics.join(', ') || 'none yet'}`;
-}
-
-function sessionBlock(rollingSummary: string): string {
-  return `This session summary so far: ${rollingSummary || 'No summary yet. Use the latest messages as the primary context.'}`;
-}
-
-function clinicalContextBlock(clinicalContext: string[]): string {
-  if (!clinicalContext.length) return 'Relevant clinical context: none retrieved.';
-  return `Relevant clinical context:\n${clinicalContext.map((chunk, index) => `${index + 1}. ${chunk}`).join('\n')}`;
 }
 
 function emptyProfile(): IMemoryProfile {
@@ -194,4 +158,3 @@ function emptyProfile(): IMemoryProfile {
     followUpTopics: []
   };
 }
->>>>>>> b406221 (feat: add user export route and memory management services)

@@ -7,7 +7,7 @@ import { buildTherapyContext } from '../services/context.builder';
 import { CRISIS_RESPONSE, detectCrisis } from '../services/crisis.detector';
 import { createSessionSummaryCard, updateLongTermMemory } from '../services/memory.service';
 import { retrieveClinicalContext } from '../services/rag.retriever';
-import { streamTherapyResponse } from '../services/llm.client';
+import { streamGeminiResponse } from '../services/llm.client';
 import { updateRollingSummaryIfNeeded } from '../services/summarizer';
 import { ApiError, asyncHandler } from '../utils/errors';
 
@@ -77,11 +77,12 @@ router.post('/:sessionId/messages', asyncHandler(async (req, res) => {
 
   await session.save();
 
-  const chunks = await retrieveClinicalContext(message);
+  const user = await UserModel.findById(userId).select('preferredModality');
+  const chunks = await retrieveClinicalContext(message, user?.preferredModality);
   const context = await buildTherapyContext(userId, String(session._id), chunks.map((chunk) => chunk.text));
   let assistantText = '';
 
-  await streamTherapyResponse({
+  await streamGeminiResponse({
     system: context.systemPrompt,
     messages: [...context.messages, { role: 'user', content: message }],
     onText: (chunk) => {

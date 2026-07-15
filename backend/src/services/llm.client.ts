@@ -1,3 +1,4 @@
+import { GoogleGenerativeAI } from '@google/generative-ai';
 import { getConfig } from '../config/env';
 
 export interface ChatMessage {
@@ -5,7 +6,7 @@ export interface ChatMessage {
   content: string;
 }
 
-interface AnthropicTextRequest {
+interface GeminiTextRequest {
   system: string;
   messages: ChatMessage[];
   maxTokens?: number;
@@ -13,49 +14,144 @@ interface AnthropicTextRequest {
   utility?: boolean;
 }
 
-export async function callAnthropicText({
+let genAI: GoogleGenerativeAI | null = null;
+function getGenAIClient(): GoogleGenerativeAI {
+  if (!genAI) {
+    const config = getConfig();
+    genAI = new GoogleGenerativeAI(config.geminiApiKey || '');
+  }
+  return genAI;
+}
+
+export async function callGeminiText({
   system,
   messages,
   maxTokens = 800,
   timeoutMs,
   utility
-}: AnthropicTextRequest): Promise<string | null> {
+}: GeminiTextRequest): Promise<string | null> {
   const config = getConfig();
-  if (!config.anthropicApiKey) return null;
 
+  // Route to OpenRouter if configured
+  if (config.openrouterApiKey) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), timeoutMs);
+
+    try {
+      const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'authorization': `Bearer ${config.openrouterApiKey}`,
+          'http-referer': 'http://localhost:3000',
+          'x-title': 'Aria Therapist'
+        },
+        body: JSON.stringify({
+          model: config.openrouterModel,
+          messages: [
+            { role: 'system', content: system },
+            ...messages.map((m) => ({ role: m.role, content: m.content }))
+          ],
+          max_tokens: maxTokens,
+          temperature: utility ? 0 : 0.7
+        }),
+        signal: controller.signal
+      });
+
+      if (!response.ok) {
+        const errText = await response.text();
+        console.error(`[OpenRouter LLM] API error: ${response.statusText} (${response.status}) - ${errText}`);
+        return null;
+      }
+
+      const data = await response.json() as any;
+      return data.choices?.[0]?.message?.content || null;
+    } catch (error) {
+      console.error('[OpenRouter LLM] Non-stream generation failed:', error);
+      return null;
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+
+  // Route to DeepSeek if deepseekApiKey is configured
+  if (config.deepseekApiKey) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), timeoutMs);
+
+    try {
+      const response = await fetch('https://api.deepseek.com/chat/completions', {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'authorization': `Bearer ${config.deepseekApiKey}`
+        },
+        body: JSON.stringify({
+          model: 'deepseek-chat',
+          messages: [
+            { role: 'system', content: system },
+            ...messages.map((m) => ({ role: m.role, content: m.content }))
+          ],
+          max_tokens: maxTokens,
+          temperature: utility ? 0 : 0.7
+        }),
+        signal: controller.signal
+      });
+
+      if (!response.ok) {
+        const errText = await response.text();
+        console.error(`[DeepSeek LLM] API error: ${response.statusText} (${response.status}) - ${errText}`);
+        return null;
+      }
+
+      const data = await response.json() as any;
+      return data.choices?.[0]?.message?.content || null;
+    } catch (error) {
+      console.error('[DeepSeek LLM] Non-stream generation failed:', error);
+      return null;
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+
+  // Fallback to Gemini
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      signal: controller.signal,
-      headers: {
-        'content-type': 'application/json',
-        'x-api-key': config.anthropicApiKey,
-        'anthropic-version': '2023-06-01'
-      },
-      body: JSON.stringify({
-        model: utility ? config.anthropicUtilityModel : config.anthropicChatModel,
-        max_tokens: maxTokens,
-        temperature: utility ? 0 : 0.7,
-        system,
-        messages
-      })
+    const client = getGenAIClient();
+    const model = client.getGenerativeModel({
+      model: 'gemini-2.0-flash',
+      systemInstruction: system,
     });
 
-    if (!response.ok) return null;
+    const geminiHistory = messages.slice(0, -1).map((msg) => ({
+      role: msg.role === 'assistant' ? 'model' : 'user',
+      parts: [{ text: msg.content }]
+    }));
+    
+    const lastMsg = messages[messages.length - 1];
+    const userPrompt = lastMsg ? lastMsg.content : '';
 
-    const data = await response.json() as { content?: Array<{ type: string; text?: string }> };
-    return data.content?.find((item) => item.type === 'text')?.text || null;
-  } catch {
+    const chat = model.startChat({
+      history: geminiHistory,
+      generationConfig: {
+        maxOutputTokens: maxTokens,
+        temperature: utility ? 0 : 0.7,
+      }
+    });
+
+    const result = await chat.sendMessage(userPrompt, { signal: controller.signal });
+    return result.response.text() || null;
+  } catch (error) {
+    console.error('[Gemini LLM] Text generation failed:', error);
     return null;
   } finally {
     clearTimeout(timeout);
   }
 }
 
-export async function streamTherapyResponse({
+export async function streamGeminiResponse({
   system,
   messages,
   onText
@@ -66,64 +162,203 @@ export async function streamTherapyResponse({
 }): Promise<string> {
   const config = getConfig();
 
-  if (!config.anthropicApiKey) {
-    const fallback = createFallbackResponse(messages[messages.length - 1]?.content || '');
-    for (const chunk of fallback.match(/.{1,16}(\s|$)/g) || [fallback]) {
-      onText(chunk);
+  // Route to OpenRouter if configured
+  if (config.openrouterApiKey) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 45_000);
+    let fullText = '';
+
+    try {
+      const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'authorization': `Bearer ${config.openrouterApiKey}`,
+          'http-referer': 'http://localhost:3000',
+          'x-title': 'Aria Therapist'
+        },
+        body: JSON.stringify({
+          model: config.openrouterModel,
+          messages: [
+            { role: 'system', content: system },
+            ...messages.map((m) => ({ role: m.role, content: m.content }))
+          ],
+          stream: true,
+          max_tokens: 900,
+          temperature: 0.7
+        }),
+        signal: controller.signal
+      });
+
+      if (!response.ok) {
+        const errText = await response.text();
+        throw new Error(`OpenRouter API error: ${response.statusText} (${response.status}) - ${errText}`);
+      }
+
+      const reader = (response.body as any)?.getReader();
+      if (!reader) {
+        throw new Error('OpenRouter response body is not readable');
+      }
+
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+
+        for (const line of lines) {
+          const cleanLine = line.trim();
+          if (!cleanLine) continue;
+          if (cleanLine === 'data: [DONE]') continue;
+
+          if (cleanLine.startsWith('data: ')) {
+            try {
+              const parsed = JSON.parse(cleanLine.slice(6));
+              const chunkText = parsed.choices?.[0]?.delta?.content || '';
+              if (chunkText) {
+                fullText += chunkText;
+                onText(chunkText);
+              }
+            } catch (err) {
+              // Parse errors are fine for split lines
+            }
+          }
+        }
+      }
+
+      return fullText;
+    } catch (error) {
+      console.error('[OpenRouter LLM] Streaming failed:', error);
+      const fallback = createFallbackResponse(messages[messages.length - 1]?.content || '');
+      onText(fallback);
+      return fallback;
+    } finally {
+      clearTimeout(timeout);
     }
-    return fallback;
   }
 
+  // Route to DeepSeek if deepseekApiKey is configured
+  if (config.deepseekApiKey) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 45_000);
+    let fullText = '';
+
+    try {
+      const response = await fetch('https://api.deepseek.com/chat/completions', {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'authorization': `Bearer ${config.deepseekApiKey}`
+        },
+        body: JSON.stringify({
+          model: 'deepseek-chat',
+          messages: [
+            { role: 'system', content: system },
+            ...messages.map((m) => ({ role: m.role, content: m.content }))
+          ],
+          stream: true,
+          max_tokens: 900,
+          temperature: 0.7
+        }),
+        signal: controller.signal
+      });
+
+      if (!response.ok) {
+        const errText = await response.text();
+        throw new Error(`DeepSeek API error: ${response.statusText} (${response.status}) - ${errText}`);
+      }
+
+      const reader = (response.body as any)?.getReader();
+      if (!reader) {
+        throw new Error('DeepSeek response body is not readable');
+      }
+
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+
+        for (const line of lines) {
+          const cleanLine = line.trim();
+          if (!cleanLine) continue;
+          if (cleanLine === 'data: [DONE]') continue;
+
+          if (cleanLine.startsWith('data: ')) {
+            try {
+              const parsed = JSON.parse(cleanLine.slice(6));
+              const chunkText = parsed.choices?.[0]?.delta?.content || '';
+              if (chunkText) {
+                fullText += chunkText;
+                onText(chunkText);
+              }
+            } catch (err) {
+              // Parse errors are fine for split lines
+            }
+          }
+        }
+      }
+
+      return fullText;
+    } catch (error) {
+      console.error('[DeepSeek LLM] Streaming failed:', error);
+      const fallback = createFallbackResponse(messages[messages.length - 1]?.content || '');
+      onText(fallback);
+      return fallback;
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+
+  // Fallback to Gemini
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 30_000);
   let fullText = '';
 
   try {
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      signal: controller.signal,
-      headers: {
-        'content-type': 'application/json',
-        'x-api-key': config.anthropicApiKey,
-        'anthropic-version': '2023-06-01'
-      },
-      body: JSON.stringify({
-        model: config.anthropicChatModel,
-        max_tokens: 900,
-        temperature: 0.7,
-        stream: true,
-        system,
-        messages
-      })
+    const client = getGenAIClient();
+    const model = client.getGenerativeModel({
+      model: 'gemini-2.0-flash',
+      systemInstruction: system,
     });
 
-    if (!response.ok || !response.body) {
-      throw new Error('Anthropic stream failed');
-    }
+    const geminiHistory = messages.slice(0, -1).map((msg) => ({
+      role: msg.role === 'assistant' ? 'model' : 'user',
+      parts: [{ text: msg.content }]
+    }));
+    
+    const lastMsg = messages[messages.length - 1];
+    const userPrompt = lastMsg ? lastMsg.content : '';
 
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder();
-
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-
-      const payload = decoder.decode(value);
-      const lines = payload.split('\n').filter((line) => line.startsWith('data: '));
-
-      for (const line of lines) {
-        const raw = line.replace(/^data: /, '');
-        if (raw === '[DONE]') continue;
-        const event = JSON.parse(raw) as { type?: string; delta?: { text?: string } };
-        if (event.type === 'content_block_delta' && event.delta?.text) {
-          fullText += event.delta.text;
-          onText(event.delta.text);
-        }
+    const chat = model.startChat({
+      history: geminiHistory,
+      generationConfig: {
+        maxOutputTokens: 900,
+        temperature: 0.7,
       }
+    });
+
+    const responseStream = await chat.sendMessageStream(userPrompt, { signal: controller.signal });
+
+    for await (const chunk of responseStream.stream) {
+      const chunkText = chunk.text();
+      fullText += chunkText;
+      onText(chunkText);
     }
 
     return fullText;
-  } catch {
+  } catch (error) {
+    console.error('[Gemini LLM] Streaming failed:', error);
     const fallback = createFallbackResponse(messages[messages.length - 1]?.content || '');
     onText(fallback);
     return fallback;

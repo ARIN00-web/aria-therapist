@@ -15,16 +15,13 @@ export interface ISession extends Document {
   moodAfter?: number;
   messages: IMessage[];
   rollingSummary?: string;
-<<<<<<< HEAD
   summaryMessageCount: number;
-=======
   status: 'active' | 'paused_for_crisis' | 'ended';
   summaryCard?: {
     themes: string[];
     reflection: string;
     nextTopic: string;
   };
->>>>>>> b406221 (feat: add user export route and memory management services)
 }
 
 const MessageSchema = new Schema<IMessage>({
@@ -47,15 +44,13 @@ const SessionSchema = new Schema<ISession>({
   moodBefore: { type: Number, min: 1, max: 10 },
   moodAfter: { type: Number, min: 1, max: 10 },
   messages: [MessageSchema],
-<<<<<<< HEAD
-  rollingSummary: { type: String, default: '' },
-  summaryMessageCount: { type: Number, default: 0, min: 0 }
-=======
   rollingSummary: {
     type: String,
     set: (val: string) => encrypt(val),
-    get: (val: string) => decrypt(val)
+    get: (val: string) => decrypt(val),
+    default: ''
   },
+  summaryMessageCount: { type: Number, default: 0, min: 0 },
   status: {
     type: String,
     enum: ['active', 'paused_for_crisis', 'ended'],
@@ -66,7 +61,6 @@ const SessionSchema = new Schema<ISession>({
     reflection: { type: String, default: '' },
     nextTopic: { type: String, default: '' }
   }
->>>>>>> b406221 (feat: add user export route and memory management services)
 }, {
 
   toJSON: { getters: true },
