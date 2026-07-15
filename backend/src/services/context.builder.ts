@@ -32,6 +32,7 @@ Your goal is not to solve every problem, but to help users feel heard, understoo
 - Ask one thoughtful question at a time.
 - Keep responses collaborative rather than directive.
 - Respect the user's autonomy.
+- NEVER explicitly name or mention the clinical approach or modality you are using (e.g., do NOT say "Since you prefer CBT...", "Let's use a CBT approach", or "We can practice a DBT skill"). Integrate these techniques naturally, conversationally, and seamlessly without breaking the therapeutic fourth wall.
 
 ## Therapeutic Style
 
@@ -99,9 +100,9 @@ export async function buildTherapyContext(
     content: message.content
   }));
 
-  const preferredModality = user.preferredModality
+  const preferredModality = user.preferredModality && user.preferredModality !== 'Auto'
     ? `Preferred modality: ${user.preferredModality}`
-    : null;
+    : `Preferred modality: Auto (Integrative therapy - dynamically select the most appropriate clinical approach like CBT, DBT, ACT, or Person-Centred based on the user's present needs, without ever mentioning the approach name).`;
 
   const longTermMemoryBlock = [
     "## Long-Term Memory Profile",

@@ -6,6 +6,7 @@ import { requireAuth, type AuthenticatedRequest } from '../middleware/auth.middl
 import { MemoryModel } from '../models/Memory.model';
 import { SessionModel } from '../models/Session.model';
 import { UserModel } from '../models/User.model';
+import { WellnessActivityModel } from '../models/WellnessActivity.model';
 import { ApiError, asyncHandler } from '../utils/errors';
 import { createAccessToken, createRefreshToken, verifyToken } from '../utils/tokens';
 
@@ -55,6 +56,21 @@ router.post('/onboarding', asyncHandler(async (req, res) => {
   sendAuthResponse(res, user.id, user.tokenVersion);
 }));
 
+router.post('/login', asyncHandler(async (req, res) => {
+  const { email } = req.body;
+  if (!isNonEmptyString(email)) throw new ApiError(400, 'Email is required');
+
+  const user = await UserModel.findOne({ email: email.toLowerCase().trim(), deletedAt: { $exists: false } });
+  if (!user) {
+    throw new ApiError(404, 'No account found with this email. Please sign up first.');
+  }
+
+  user.lastActiveAt = new Date();
+  await user.save();
+
+  sendAuthResponse(res, user.id, user.tokenVersion);
+}));
+
 router.post('/refresh', asyncHandler(async (req, res) => {
   const token = parseCookie(req.headers.cookie || '').refreshToken;
   const payload = token ? verifyToken(token, 'refresh') : null;
@@ -72,6 +88,11 @@ router.post('/refresh', asyncHandler(async (req, res) => {
   sendAuthResponse(res, user.id, user.tokenVersion);
 }));
 
+router.post('/logout', asyncHandler(async (req, res) => {
+  res.clearCookie('refreshToken');
+  res.status(200).json({ success: true });
+}));
+
 router.get('/me', requireAuth, asyncHandler(async (req, res) => {
   const user = await UserModel.findById((req as AuthenticatedRequest).userId).select('-tokenVersion');
   if (!user) throw new ApiError(404, 'User not found');
@@ -83,7 +104,8 @@ router.delete('/me', requireAuth, asyncHandler(async (req, res) => {
   await Promise.all([
     UserModel.findByIdAndUpdate(userId, { deletedAt: new Date(), tokenVersion: Date.now() }),
     SessionModel.deleteMany({ userId: new Types.ObjectId(userId) }),
-    MemoryModel.deleteMany({ userId: new Types.ObjectId(userId) })
+    MemoryModel.deleteMany({ userId: new Types.ObjectId(userId) }),
+    WellnessActivityModel.deleteMany({ userId: new Types.ObjectId(userId) })
   ]);
 
   res.clearCookie('refreshToken');

@@ -78,7 +78,8 @@ router.post('/:sessionId/messages', asyncHandler(async (req, res) => {
   await session.save();
 
   const user = await UserModel.findById(userId).select('preferredModality');
-  const chunks = await retrieveClinicalContext(message, user?.preferredModality);
+  const modalityFilter = user?.preferredModality === 'Auto' ? undefined : user?.preferredModality;
+  const chunks = await retrieveClinicalContext(message, modalityFilter);
   const context = await buildTherapyContext(userId, String(session._id), chunks.map((chunk) => chunk.text));
   let assistantText = '';
 

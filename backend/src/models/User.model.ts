@@ -4,7 +4,7 @@ export interface IUser extends Document {
   id: string;
   name: string;
   email: string;
-  preferredModality: 'CBT' | 'DBT' | 'ACT' | 'Person-centred' | 'Motivational Interviewing';
+  preferredModality: 'Auto' | 'CBT' | 'DBT' | 'ACT' | 'Person-centred' | 'Motivational Interviewing';
   timezone: string;
   onboardingAnswers: Record<string, any>;
   consentAcceptedAt?: Date;
@@ -20,8 +20,8 @@ const UserSchema = new Schema<IUser>({
   email: { type: String, required: true, unique: true, index: true, lowercase: true, trim: true },
   preferredModality: { 
     type: String, 
-    enum: ['CBT', 'DBT', 'ACT', 'Person-centred', 'Motivational Interviewing'], 
-    default: 'CBT' 
+    enum: ['Auto', 'CBT', 'DBT', 'ACT', 'Person-centred', 'Motivational Interviewing'], 
+    default: 'Auto' 
   },
   timezone: { type: String, default: 'UTC' },
   onboardingAnswers: { type: Schema.Types.Mixed, default: {} },

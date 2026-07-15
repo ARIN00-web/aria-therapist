@@ -10,6 +10,7 @@ import authRoutes from './routes/auth.routes';
 import memoryRoutes from './routes/memory.routes';
 import sessionRoutes from './routes/session.routes';
 import userRoutes from './routes/user.routes';
+import wellnessRoutes from './routes/wellness.routes';
 import { errorHandler } from './utils/errors';
 
 const app = express();
@@ -31,6 +32,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/sessions', sessionRoutes);
 app.use('/api/memory', memoryRoutes);
 app.use('/api/user', userRoutes);
+app.use('/api/wellness', wellnessRoutes);
 app.use(errorHandler);
 
 connectDatabase()

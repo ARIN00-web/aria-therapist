@@ -9,31 +9,61 @@ export interface OnboardingPayload {
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001';
 
-export async function completeOnboarding(payload: OnboardingPayload): Promise<string> {
-  const response = await fetch(`${API_URL}/api/auth/onboarding`, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    credentials: 'include',
-    body: JSON.stringify(payload)
+type RequestOptions = {
+  method?: string;
+  accessToken?: string;
+  body?: unknown;
+  credentials?: RequestCredentials;
+};
+
+async function requestJson<T>(path: string, options: RequestOptions = {}): Promise<T> {
+  const headers: Record<string, string> = {};
+  if (options.body !== undefined) headers['content-type'] = 'application/json';
+  if (options.accessToken) headers.authorization = `Bearer ${options.accessToken}`;
+
+  const response = await fetch(`${API_URL}${path}`, {
+    method: options.method || 'GET',
+    headers,
+    credentials: options.credentials,
+    body: options.body === undefined ? undefined : JSON.stringify(options.body)
   });
 
   if (!response.ok) throw new Error(await readError(response));
-  const data = await response.json() as { accessToken: string };
+  if (response.status === 204) return undefined as T;
+  return response.json() as Promise<T>;
+}
+
+export async function completeOnboarding(payload: OnboardingPayload): Promise<string> {
+  const data = await requestJson<{ accessToken: string }>('/api/auth/onboarding', {
+    method: 'POST',
+    credentials: 'include',
+    body: payload
+  });
   return data.accessToken;
 }
 
-export async function createSession(accessToken: string, moodBefore: number): Promise<string> {
-  const response = await fetch(`${API_URL}/api/sessions`, {
+export async function loginUser(email: string): Promise<string> {
+  const data = await requestJson<{ accessToken: string }>('/api/auth/login', {
     method: 'POST',
-    headers: {
-      'content-type': 'application/json',
-      authorization: `Bearer ${accessToken}`
-    },
-    body: JSON.stringify({ moodBefore })
+    credentials: 'include',
+    body: { email }
   });
+  return data.accessToken;
+}
 
-  if (!response.ok) throw new Error(await readError(response));
-  const data = await response.json() as { session: { _id: string; id?: string } };
+export async function logoutUser(): Promise<void> {
+  await requestJson<void>('/api/auth/logout', {
+    method: 'POST',
+    credentials: 'include'
+  });
+}
+
+export async function createSession(accessToken: string, moodBefore: number): Promise<string> {
+  const data = await requestJson<{ session: { _id: string; id?: string } }>('/api/sessions', {
+    method: 'POST',
+    accessToken,
+    body: { moodBefore }
+  });
   return data.session._id || data.session.id || '';
 }
 
@@ -84,17 +114,159 @@ export async function streamMessage({
 }
 
 export async function endSession(accessToken: string, sessionId: string, moodAfter: number) {
-  const response = await fetch(`${API_URL}/api/sessions/${sessionId}/end`, {
+  return requestJson(`/api/sessions/${sessionId}/end`, {
     method: 'POST',
-    headers: {
-      'content-type': 'application/json',
-      authorization: `Bearer ${accessToken}`
-    },
-    body: JSON.stringify({ moodAfter })
+    accessToken,
+    body: { moodAfter }
   });
+}
 
-  if (!response.ok) throw new Error(await readError(response));
-  return response.json();
+export async function refreshAccessToken(): Promise<string> {
+  const data = await requestJson<{ accessToken: string }>('/api/auth/refresh', {
+    method: 'POST',
+    credentials: 'include'
+  });
+  return data.accessToken;
+}
+
+export interface SessionHistoryItem {
+  _id: string;
+  startedAt: string;
+  endedAt: string;
+  moodBefore: number;
+  moodAfter: number;
+  status: string;
+  summaryCard?: {
+    summary: string;
+    themes: string[];
+    triggers: string[];
+    copingStrategies: string[];
+    insights: string[];
+  };
+}
+
+export async function getSessions(accessToken: string): Promise<SessionHistoryItem[]> {
+  const data = await requestJson<{ sessions: SessionHistoryItem[] }>('/api/sessions', { accessToken });
+  return data.sessions;
+}
+
+export interface SessionDetails {
+  _id: string;
+  userId: string;
+  startedAt: string;
+  endedAt: string;
+  moodBefore: number;
+  moodAfter: number;
+  status: string;
+  messages: Array<{ role: 'user' | 'assistant'; content: string; ts: string }>;
+  rollingSummary?: string;
+  summaryCard?: {
+    summary: string;
+    themes: string[];
+    triggers: string[];
+    copingStrategies: string[];
+    insights: string[];
+  };
+}
+
+export async function getSessionDetails(accessToken: string, sessionId: string): Promise<SessionDetails> {
+  const data = await requestJson<{ session: SessionDetails }>(`/api/sessions/${sessionId}`, { accessToken });
+  return data.session;
+}
+
+export interface WellnessActivity {
+  _id: string;
+  type: 'mood' | 'journal' | 'goal' | 'tool' | 'message' | 'setting';
+  title?: string;
+  content?: string;
+  mood?: number;
+  moodLabel?: string;
+  tool?: string;
+  completed?: boolean;
+  metadata?: Record<string, unknown>;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface WellnessResource {
+  title: string;
+  category: string;
+  description: string;
+}
+
+export interface WellnessSummary {
+  moods: WellnessActivity[];
+  journals: WellnessActivity[];
+  goals: WellnessActivity[];
+  messages: WellnessActivity[];
+  tools: WellnessActivity[];
+  resources: WellnessResource[];
+}
+
+export async function getWellnessSummary(accessToken: string): Promise<WellnessSummary> {
+  return requestJson<WellnessSummary>('/api/wellness/summary', { accessToken });
+}
+
+export async function saveMood(accessToken: string, mood: number, moodLabel: string): Promise<WellnessActivity> {
+  const data = await requestJson<{ mood: WellnessActivity }>('/api/wellness/mood', {
+    method: 'POST',
+    accessToken,
+    body: { mood, moodLabel }
+  });
+  return data.mood;
+}
+
+export async function saveJournalEntry(accessToken: string, content: string, title = 'Journal entry'): Promise<WellnessActivity> {
+  const data = await requestJson<{ entry: WellnessActivity }>('/api/wellness/journal', {
+    method: 'POST',
+    accessToken,
+    body: { title, content }
+  });
+  return data.entry;
+}
+
+export async function saveGoal(accessToken: string, title: string, content = ''): Promise<WellnessActivity> {
+  const data = await requestJson<{ goal: WellnessActivity }>('/api/wellness/goals', {
+    method: 'POST',
+    accessToken,
+    body: { title, content }
+  });
+  return data.goal;
+}
+
+export async function updateGoal(accessToken: string, goalId: string, completed: boolean): Promise<WellnessActivity> {
+  const data = await requestJson<{ goal: WellnessActivity }>(`/api/wellness/goals/${goalId}`, {
+    method: 'PATCH',
+    accessToken,
+    body: { completed }
+  });
+  return data.goal;
+}
+
+export async function trackToolUse(accessToken: string, tool: string): Promise<WellnessActivity> {
+  const data = await requestJson<{ activity: WellnessActivity }>('/api/wellness/tools', {
+    method: 'POST',
+    accessToken,
+    body: { tool }
+  });
+  return data.activity;
+}
+
+export async function saveMessageNote(accessToken: string, content: string): Promise<WellnessActivity> {
+  const data = await requestJson<{ message: WellnessActivity }>('/api/wellness/messages', {
+    method: 'POST',
+    accessToken,
+    body: { content }
+  });
+  return data.message;
+}
+
+export async function updateSettings(accessToken: string, preferredModality: string): Promise<void> {
+  await requestJson('/api/wellness/settings', {
+    method: 'PATCH',
+    accessToken,
+    body: { preferredModality, timezone: Intl.DateTimeFormat().resolvedOptions().timeZone }
+  });
 }
 
 async function readError(response: Response): Promise<string> {
