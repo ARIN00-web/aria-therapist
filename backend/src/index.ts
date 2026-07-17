@@ -23,6 +23,10 @@ app.use(cors({
   origin: config.frontendOrigin,
   credentials: true
 }));
+app.use((req, res, next) => {
+  console.log(`[request] method=${req.method} url=${req.url}`);
+  next();
+});
 app.all('/api/auth/*path', toNodeHandler(auth));
 app.use(express.json({ limit: '64kb' }));
 app.use(rateLimit);
@@ -31,7 +35,7 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', service: 'aria-backend', timestamp: new Date().toISOString() });
 });
 
-app.use('/api/auth', authRoutes);
+app.use('/api/custom-auth', authRoutes);
 app.use('/api/sessions', sessionRoutes);
 app.use('/api/memory', memoryRoutes);
 app.use('/api/user', userRoutes);

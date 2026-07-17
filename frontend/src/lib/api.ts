@@ -34,7 +34,7 @@ async function requestJson<T>(path: string, options: RequestOptions = {}): Promi
 }
 
 export async function completeOnboarding(payload: OnboardingPayload): Promise<string> {
-  const data = await requestJson<{ accessToken: string }>('/api/auth/onboarding', {
+  const data = await requestJson<{ accessToken: string }>('/api/custom-auth/onboarding', {
     method: 'POST',
     credentials: 'include',
     body: payload
@@ -46,7 +46,7 @@ export async function completeOnboardingOauth(payload: {
   preferredModality: string;
   onboardingAnswers: Record<string, string>;
 }): Promise<void> {
-  await requestJson<void>('/api/auth/complete-onboarding-oauth', {
+  await requestJson<void>('/api/custom-auth/complete-onboarding-oauth', {
     method: 'POST',
     credentials: 'include',
     body: payload
@@ -54,7 +54,7 @@ export async function completeOnboardingOauth(payload: {
 }
 
 export async function loginUser(email: string): Promise<string> {
-  const data = await requestJson<{ accessToken: string }>('/api/auth/login', {
+  const data = await requestJson<{ accessToken: string }>('/api/custom-auth/login', {
     method: 'POST',
     credentials: 'include',
     body: { email }
@@ -63,7 +63,7 @@ export async function loginUser(email: string): Promise<string> {
 }
 
 export async function logoutUser(): Promise<void> {
-  await requestJson<void>('/api/auth/logout', {
+  await requestJson<void>('/api/custom-auth/logout', {
     method: 'POST',
     credentials: 'include'
   });
@@ -133,7 +133,7 @@ export async function endSession(accessToken: string, sessionId: string, moodAft
 }
 
 export async function refreshAccessToken(): Promise<string> {
-  const data = await requestJson<{ accessToken: string }>('/api/auth/refresh', {
+  const data = await requestJson<{ accessToken: string }>('/api/custom-auth/refresh', {
     method: 'POST',
     credentials: 'include'
   });

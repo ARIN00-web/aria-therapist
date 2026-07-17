@@ -15,8 +15,9 @@
   export const auth = betterAuth({
     database: mongodbAdapter(db, {
       client,
+      transaction: false,
     }),
-    secret: process.env.AUTH_SECRET,
+    secret: process.env.BETTER_AUTH_SECRET || process.env.AUTH_SECRET,
     baseURL: process.env.BETTER_AUTH_URL || "http://localhost:5001",
     trustedOrigins: [
       process.env.FRONTEND_ORIGIN || "http://localhost:3000",
@@ -75,10 +76,5 @@
     },
     verification: {
       modelName: "verifications",
-    },
-    advanced: {
-      database: {
-        generateId: () => new mongoose.Types.ObjectId().toHexString(),
-      },
     },
   });

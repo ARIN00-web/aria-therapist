@@ -26,13 +26,13 @@ export function errorHandler(
   const statusCode = error instanceof ApiError ? error.statusCode : 500;
   const message = statusCode === 500 ? 'Something went wrong' : error.message;
 
-  if (statusCode === 500) {
-    console.error('[api:error]', {
-      name: error.name,
-      message: error.message,
-      timestamp: new Date().toISOString()
-    });
-  }
+  console.error('[api:error]', {
+    statusCode,
+    name: error.name,
+    message: error.message,
+    stack: error.stack,
+    timestamp: new Date().toISOString()
+  });
 
   res.status(statusCode).json({ error: message });
 }
