@@ -3,6 +3,7 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import {
   completeOnboarding,
+  completeOnboardingOauth,
   createSession,
   endSession,
   getSessionDetails,
@@ -24,6 +25,7 @@ import {
   type SessionDetails,
   type SessionHistoryItem
 } from '@/lib/api';
+import { authClient } from '@/lib/auth-client';
 
 type Step = 'consent' | 'auth_choice' | 'signin' | 'onboarding' | 'mood' | 'session' | 'dashboard';
 type Message = { role: 'user' | 'assistant'; content: string };
@@ -143,13 +145,41 @@ export function AriaApp() {
   useEffect(() => {
     async function initAuth() {
       try {
-        const token = await refreshAccessToken();
-        setAccessToken(token);
-        const list = await getSessions(token);
-        setSessionsHistory(list);
-        await loadWellness(token);
-        setStep('dashboard');
-      } catch {
+        const urlParams = new URLSearchParams(window.location.search);
+        const onboardingComplete = urlParams.get('onboarding') === 'complete';
+
+        const sessionRes = await authClient.getSession();
+        const session = sessionRes?.data;
+
+        if (session) {
+          setAccessToken('session_active');
+
+          if (onboardingComplete) {
+            const storedAnswers = sessionStorage.getItem('pending_onboarding_answers');
+            const storedModality = sessionStorage.getItem('pending_preferred_modality');
+
+            if (storedAnswers && storedModality) {
+              const answersObj = JSON.parse(storedAnswers);
+              await completeOnboardingOauth({
+                preferredModality: storedModality,
+                onboardingAnswers: answersObj
+              });
+              sessionStorage.removeItem('pending_onboarding_answers');
+              sessionStorage.removeItem('pending_preferred_modality');
+            }
+            window.history.replaceState({}, document.title, window.location.pathname);
+            setStep('mood');
+          } else {
+            const list = await getSessions('session_active');
+            setSessionsHistory(list);
+            await loadWellness('session_active');
+            setStep('dashboard');
+          }
+        } else {
+          setStep('consent');
+        }
+      } catch (err) {
+        console.error('Auth initialization error:', err);
         setStep('consent');
       } finally {
         setIsAuthLoading(false);
@@ -172,24 +202,41 @@ export function AriaApp() {
     }
   }
 
-  async function handleSignIn(event: FormEvent) {
-    event.preventDefault();
+  async function handleSignInWithGoogle() {
     setError('');
     try {
-      const token = await loginUser(signinEmail);
-      setAccessToken(token);
-      const list = await getSessions(token);
-      setSessionsHistory(list);
-      await loadWellness(token);
-      setStep('dashboard');
+      await authClient.signIn.social({
+        provider: 'google',
+        callbackURL: window.location.origin
+      });
     } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : 'Login failed.');
+      setError(requestError instanceof Error ? requestError.message : 'Google sign-in failed.');
+    }
+  }
+
+  async function handleOnboardingGoogle() {
+    setError('');
+    if (safetyAnsweredYes) {
+      setMessages([{ role: 'assistant', content: 'Please reach out right now: iCall (India): 9152987821, Vandrevala Foundation: 1860-2662-345, NIMHANS: 080-46110007.' }]);
+      setStep('session');
+      return;
+    }
+    sessionStorage.setItem('pending_onboarding_answers', JSON.stringify(answers));
+    sessionStorage.setItem('pending_preferred_modality', modality);
+
+    try {
+      await authClient.signIn.social({
+        provider: 'google',
+        callbackURL: window.location.origin + '?onboarding=complete'
+      });
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : 'Could not start Google sign-in.');
     }
   }
 
   async function handleSignOut() {
     try {
-      await logoutUser();
+      await authClient.signOut();
     } catch (err) {
       console.error('Logout failed:', err);
     } finally {
@@ -324,7 +371,7 @@ export function AriaApp() {
     resetSessionState();
   }
 
-  async function continueOnboarding() {
+  function continueOnboarding() {
     setError('');
     if (safetyAnsweredYes) {
       setMessages([{ role: 'assistant', content: 'Please reach out right now: iCall (India): 9152987821, Vandrevala Foundation: 1860-2662-345, NIMHANS: 080-46110007.' }]);
@@ -334,28 +381,6 @@ export function AriaApp() {
 
     if (questionIndex < questions.length - 1) {
       setQuestionIndex((index) => index + 1);
-      return;
-    }
-
-    if (!email.trim()) {
-      setError('Email is required so your sessions can be private to you.');
-      return;
-    }
-
-    try {
-      const token = await completeOnboarding({
-        name: answers.name,
-        email,
-        preferredModality: modality,
-        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-        onboardingAnswers: answers,
-        consentAccepted: true
-      });
-      setAccessToken(token);
-      await loadWellness(token);
-      setStep('mood');
-    } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : 'Could not complete onboarding.');
     }
   }
 
@@ -475,18 +500,20 @@ export function AriaApp() {
         <WelcomeFrame narrow>
           <p className="eyebrow">Your Space</p>
           <h2 className="mt-4 text-3xl font-bold leading-tight">Sign in gently</h2>
-          <p className="mt-2 text-sm leading-6 text-[var(--muted)]">Enter your email address to retrieve your session history and long-term memory.</p>
-          <form className="mt-8 grid gap-4" onSubmit={handleSignIn}>
-            <label className="grid gap-2 text-sm font-semibold">
-              Email address
-              <input className="field" value={signinEmail} onChange={(event) => setSigninEmail(event.target.value)} type="email" placeholder="you@example.com" required />
-            </label>
+          <p className="mt-2 text-sm leading-6 text-[var(--muted)]">Sign in with your Google account to retrieve your session history and long-term memory.</p>
+          <div className="mt-8 grid gap-4">
             {error && <p className="text-sm text-[var(--danger)]" role="alert">{error}</p>}
-            <div className="mt-4 flex gap-3">
-              <button type="button" className="quiet-button px-4" onClick={() => setStep('auth_choice')}>Back</button>
-              <button className="primary-button flex-1 justify-center">Sign in</button>
-            </div>
-          </form>
+            <button className="primary-button w-full justify-center flex items-center gap-2" onClick={handleSignInWithGoogle}>
+              <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+                <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+                <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" fill="#FBBC05"/>
+                <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+              </svg>
+              Continue with Google
+            </button>
+            <button type="button" className="quiet-button justify-center mt-2" onClick={() => setStep('auth_choice')}>Back</button>
+          </div>
         </WelcomeFrame>
       )}
 
@@ -499,13 +526,29 @@ export function AriaApp() {
           <h2 className="mt-3 text-3xl font-bold leading-tight">{currentQuestion.label}</h2>
           <OnboardingInput question={currentQuestion} value={answers[currentQuestion.key] || ''} onChange={(value) => setAnswers((current) => ({ ...current, [currentQuestion.key]: value }))} />
           {questionIndex === questions.length - 1 && (
-            <div className="mt-6 grid gap-4 sm:grid-cols-2">
-              <label className="grid gap-2 text-sm font-semibold">Email<input className="field" value={email} onChange={(event) => setEmail(event.target.value)} type="email" /></label>
-              <label className="grid gap-2 text-sm font-semibold">Preferred approach<select className="field" value={modality} onChange={(event) => setModality(event.target.value)}>{modalities.map((item) => <option key={item}>{item}</option>)}</select></label>
+            <div className="mt-6">
+              <label className="grid gap-2 text-sm font-semibold max-w-sm">
+                Preferred approach
+                <select className="field" value={modality} onChange={(event) => setModality(event.target.value)}>
+                  {modalities.map((item) => <option key={item}>{item}</option>)}
+                </select>
+              </label>
             </div>
           )}
           {error && <p className="mt-4 text-sm text-[var(--danger)]" role="alert">{error}</p>}
-          <button disabled={!canContinue} className="primary-button mt-8 disabled:cursor-not-allowed disabled:opacity-50" onClick={continueOnboarding}>Continue</button>
+          {questionIndex === questions.length - 1 ? (
+            <button disabled={!canContinue} className="primary-button mt-8 disabled:cursor-not-allowed disabled:opacity-50 flex items-center gap-2" onClick={handleOnboardingGoogle}>
+              <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+                <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+                <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" fill="#FBBC05"/>
+                <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+              </svg>
+              Continue with Google
+            </button>
+          ) : (
+            <button disabled={!canContinue} className="primary-button mt-8 disabled:cursor-not-allowed disabled:opacity-50" onClick={continueOnboarding}>Continue</button>
+          )}
         </WelcomeFrame>
       )}
 

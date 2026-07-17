@@ -1,8 +1,9 @@
 import mongoose from "mongoose";
+import { normalizeMongoUri } from "../config/env";
 
 const connectDB = async () => {
   try {
-    const uri = process.env.MONGODB_URI;
+    const uri = normalizeMongoUri(process.env.MONGODB_URI || "");
     if (!uri) {
       console.error("MongoDB connection failed: MONGODB_URI is not set");
       process.exit(1);

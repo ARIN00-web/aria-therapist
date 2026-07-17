@@ -12,6 +12,8 @@ import sessionRoutes from './routes/session.routes';
 import userRoutes from './routes/user.routes';
 import wellnessRoutes from './routes/wellness.routes';
 import { errorHandler } from './utils/errors';
+import { toNodeHandler } from 'better-auth/node';
+import { auth } from './config/auth';
 
 const app = express();
 const config = getConfig();
@@ -21,6 +23,7 @@ app.use(cors({
   origin: config.frontendOrigin,
   credentials: true
 }));
+app.all('/api/auth/*path', toNodeHandler(auth));
 app.use(express.json({ limit: '64kb' }));
 app.use(rateLimit);
 

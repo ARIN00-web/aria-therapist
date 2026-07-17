@@ -1,3 +1,16 @@
+export function normalizeMongoUri(uri: string): string {
+  if (!uri) {
+    return uri;
+  }
+
+  if (/[?&]retryWrites=/.test(uri)) {
+    return uri;
+  }
+
+  const separator = uri.includes('?') ? '&' : '?';
+  return `${uri}${separator}retryWrites=false`;
+}
+
 export interface AppConfig {
   port: number;
   mongoUri: string;
@@ -33,7 +46,7 @@ export function getConfig(): AppConfig {
 
   return {
     port: Number(process.env.PORT || 5001),
-    mongoUri: requireEnv('MONGODB_URI'),
+    mongoUri: normalizeMongoUri(requireEnv('MONGODB_URI')),
     frontendOrigin: process.env.FRONTEND_ORIGIN || 'http://localhost:3000',
     encryptionKey: requireEnv('ENCRYPTION_KEY'),
     authSecret: requireEnv('AUTH_SECRET'),

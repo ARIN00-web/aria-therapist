@@ -93,6 +93,47 @@ router.post('/logout', asyncHandler(async (req, res) => {
   res.status(200).json({ success: true });
 }));
 
+router.post('/complete-onboarding-oauth', requireAuth, asyncHandler(async (req, res) => {
+  const { preferredModality, onboardingAnswers } = req.body;
+  const userId = (req as AuthenticatedRequest).userId;
+
+  const user = await UserModel.findByIdAndUpdate(
+    userId,
+    {
+      $set: {
+        preferredModality: preferredModality || 'CBT',
+        onboardingAnswers: onboardingAnswers || {},
+        consentAcceptedAt: new Date(),
+        lastActiveAt: new Date(),
+      }
+    },
+    { new: true }
+  );
+
+  if (!user) throw new ApiError(404, 'User not found');
+
+  await MemoryModel.findOneAndUpdate(
+    { userId: user._id },
+    {
+      $setOnInsert: {
+        profile: {
+          recurringThemes: [],
+          keyPeople: [],
+          triggers: [],
+          copingStrategies: [],
+          progressNotes: [],
+          moodTrend: '',
+          followUpTopics: []
+        },
+        lastUpdated: new Date()
+      }
+    },
+    { upsert: true }
+  );
+
+  res.json({ success: true, user });
+}));
+
 router.get('/me', requireAuth, asyncHandler(async (req, res) => {
   const user = await UserModel.findById((req as AuthenticatedRequest).userId).select('-tokenVersion');
   if (!user) throw new ApiError(404, 'User not found');

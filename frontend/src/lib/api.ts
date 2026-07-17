@@ -24,7 +24,7 @@ async function requestJson<T>(path: string, options: RequestOptions = {}): Promi
   const response = await fetch(`${API_URL}${path}`, {
     method: options.method || 'GET',
     headers,
-    credentials: options.credentials,
+    credentials: 'include',
     body: options.body === undefined ? undefined : JSON.stringify(options.body)
   });
 
@@ -40,6 +40,17 @@ export async function completeOnboarding(payload: OnboardingPayload): Promise<st
     body: payload
   });
   return data.accessToken;
+}
+
+export async function completeOnboardingOauth(payload: {
+  preferredModality: string;
+  onboardingAnswers: Record<string, string>;
+}): Promise<void> {
+  await requestJson<void>('/api/auth/complete-onboarding-oauth', {
+    method: 'POST',
+    credentials: 'include',
+    body: payload
+  });
 }
 
 export async function loginUser(email: string): Promise<string> {
