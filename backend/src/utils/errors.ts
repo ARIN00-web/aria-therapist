@@ -21,7 +21,7 @@ export function errorHandler(
   error: Error,
   _req: Request,
   res: Response,
-  _next: NextFunction
+  next: NextFunction
 ) {
   const statusCode = error instanceof ApiError ? error.statusCode : 500;
   const message = statusCode === 500 ? 'Something went wrong' : error.message;
@@ -33,6 +33,15 @@ export function errorHandler(
     stack: error.stack,
     timestamp: new Date().toISOString()
   });
+
+  // If a response has already begun (e.g. an SSE stream that failed mid-flight),
+  // we can no longer set a status code or send a JSON body. Delegate to Express's
+  // default handler, which will close the connection, and avoid throwing
+  // ERR_HTTP_HEADERS_SENT here.
+  if (res.headersSent) {
+    next(error);
+    return;
+  }
 
   res.status(statusCode).json({ error: message });
 }

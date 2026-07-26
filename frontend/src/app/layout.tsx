@@ -1,19 +1,18 @@
-import type { Metadata } from "next";
-import "./globals.css";
+import type { Metadata } from 'next';
+import './globals.css';
+import { AuthProvider } from '@/context/AuthContext';
 
 export const metadata: Metadata = {
-  title: "Aria | AI Emotional Support",
-  description: "A calm AI emotional support companion with safety-first therapy-style conversations.",
+  title: 'Aria — Your AI Therapist',
+  description: 'A compassionate AI emotional support companion',
 };
 
-export default function RootLayout({
-  children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className="h-full antialiased">
-      <body className="min-h-full flex flex-col">{children}</body>
+    <html lang="en">
+      <body>
+        <AuthProvider>{children}</AuthProvider>
+      </body>
     </html>
   );
 }

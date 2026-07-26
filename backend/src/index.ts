@@ -17,17 +17,53 @@ import { auth } from './config/auth';
 
 const app = express();
 const config = getConfig();
+const authHandler = toNodeHandler(auth);
+
+app.locals.dbReady = false;
+
+function isAllowedOrigin(origin: string | undefined): boolean {
+  if (!origin) return true;
+
+  if (config.frontendOrigins.includes(origin)) return true;
+
+  return /^https?:\/\/(localhost|127(?:\.\d{1,3}){3}|0(?:\.\d{1,3}){3}|10(?:\.\d{1,3}){3}|192\.168(?:\.\d{1,3}){2}|172\.(?:1[6-9]|2\d|3[0-1])(?:\.\d{1,3}){2})(:\d+)?$/i.test(origin);
+}
 
 app.use(helmet());
 app.use(cors({
-  origin: config.frontendOrigin,
-  credentials: true
+  origin: (origin, callback) => {
+    if (isAllowedOrigin(origin)) {
+      callback(null, true);
+      return;
+    }
+
+    callback(new Error(`Origin not allowed: ${origin}`));
+  },
+  credentials: true,
+  methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
 }));
 app.use((req, res, next) => {
   console.log(`[request] method=${req.method} url=${req.url}`);
   next();
 });
-app.all('/api/auth/*path', toNodeHandler(auth));
+app.get('/api/auth/get-session', (req, res) => {
+  if (!app.locals.dbReady) {
+    res.status(200).json({ data: null });
+    return;
+  }
+
+  authHandler(req, res);
+});
+
+app.all('/api/auth/*path', (req, res) => {
+  if (!app.locals.dbReady) {
+    res.status(200).json({ data: null });
+    return;
+  }
+
+  authHandler(req, res);
+});
 app.use(express.json({ limit: '64kb' }));
 app.use(rateLimit);
 
@@ -44,6 +80,7 @@ app.use(errorHandler);
 
 connectDatabase()
   .then(() => {
+    app.locals.dbReady = true;
     app.listen(config.port, () => {
       console.log(`[server:start] port=${config.port}`);
     });
@@ -53,5 +90,7 @@ connectDatabase()
       timestamp: new Date().toISOString(),
       error: error instanceof Error ? error.message : 'unknown'
     });
-    process.exit(1);
+    app.listen(config.port, () => {
+      console.log(`[server:start] port=${config.port} (degraded: database unavailable)`);
+    });
   });

@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { Types } from 'mongoose';
 import { requireAuth, type AuthenticatedRequest } from '../middleware/auth.middleware';
+import { rateLimitByUser } from '../middleware/rateLimit.middleware';
 import { SessionModel } from '../models/Session.model';
 import { UserModel } from '../models/User.model';
 import { buildTherapyContext } from '../services/context.builder';
@@ -14,6 +15,7 @@ import { ApiError, asyncHandler } from '../utils/errors';
 const router = Router();
 
 router.use(requireAuth);
+router.use(rateLimitByUser);
 
 router.get('/', asyncHandler(async (req, res) => {
   const userId = (req as AuthenticatedRequest).userId;
@@ -83,14 +85,32 @@ router.post('/:sessionId/messages', asyncHandler(async (req, res) => {
   const context = await buildTherapyContext(userId, String(session._id), chunks.map((chunk) => chunk.text));
   let assistantText = '';
 
-  await streamGeminiResponse({
-    system: context.systemPrompt,
-    messages: [...context.messages, { role: 'user', content: message }],
-    onText: (chunk) => {
-      assistantText += chunk;
-      writeEvent(res, 'token', { content: chunk });
+  try {
+    await streamGeminiResponse({
+      system: context.systemPrompt,
+      messages: [...context.messages, { role: 'user', content: message }],
+      onText: (chunk) => {
+        assistantText += chunk;
+        writeEvent(res, 'token', { content: chunk });
+      }
+    });
+  } catch (error) {
+    // The SSE headers are already sent, so we cannot fall through to the JSON
+    // error handler. Surface a stream-level error the client can render and
+    // close the connection cleanly. The user's message stays persisted so the
+    // conversation can be retried.
+    console.error('[session:stream_failed]', {
+      sessionId: String(session._id),
+      error: error instanceof Error ? error.message : String(error)
+    });
+    if (assistantText.trim()) {
+      session.messages.push({ role: 'assistant', content: assistantText, ts: new Date() });
+      await session.save();
     }
-  });
+    writeEvent(res, 'error', { content: 'Aria could not respond just now. Please try again.' });
+    res.end();
+    return;
+  }
 
   session.messages.push({ role: 'assistant', content: assistantText, ts: new Date() });
   await session.save();

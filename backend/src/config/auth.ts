@@ -2,8 +2,9 @@
   import { mongodbAdapter } from "better-auth/adapters/mongodb";
   import { MongoClient } from "mongodb";
   import mongoose from "mongoose";
-  import { normalizeMongoUri } from "./env";
+  import { getConfig, normalizeMongoUri } from "./env";
 
+  const config = getConfig();
   const mongoUri = normalizeMongoUri(process.env.MONGODB_URI || "");
   if (!mongoUri) {
     throw new Error("MONGODB_URI environment variable is required");
@@ -18,10 +19,8 @@
       transaction: false,
     }),
     secret: process.env.BETTER_AUTH_SECRET || process.env.AUTH_SECRET,
-    baseURL: process.env.BETTER_AUTH_URL || "http://localhost:5001",
-    trustedOrigins: [
-      process.env.FRONTEND_ORIGIN || "http://localhost:3000",
-    ],
+    baseURL: process.env.BETTER_AUTH_URL || "http://127.0.0.1:5001",
+    trustedOrigins: config.frontendOrigins,
     socialProviders: {
       google: {
         clientId: process.env.GOOGLE_CLIENT_ID || "",

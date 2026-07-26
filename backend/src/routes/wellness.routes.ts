@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { Types } from 'mongoose';
 import { requireAuth, type AuthenticatedRequest } from '../middleware/auth.middleware';
+import { rateLimitByUser } from '../middleware/rateLimit.middleware';
 import { UserModel } from '../models/User.model';
 import { WellnessActivityModel } from '../models/WellnessActivity.model';
 import { ApiError, asyncHandler } from '../utils/errors';
@@ -8,6 +9,7 @@ import { ApiError, asyncHandler } from '../utils/errors';
 const router = Router();
 
 router.use(requireAuth);
+router.use(rateLimitByUser);
 
 router.get('/summary', asyncHandler(async (req, res) => {
   const userId = asObjectId((req as AuthenticatedRequest).userId);

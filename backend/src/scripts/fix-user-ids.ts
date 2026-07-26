@@ -1,10 +1,10 @@
 import 'dotenv/config';
 import process from 'process';
 import mongoose from 'mongoose';
-import connectDB from '../database/connection.database';
+import { connectDatabase } from '../config/db';
 
 async function run() {
-  await connectDB();
+  await connectDatabase();
   const db = mongoose.connection.db;
   if (!db) {
     console.error("No database connection");
