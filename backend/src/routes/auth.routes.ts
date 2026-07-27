@@ -56,21 +56,6 @@ router.post('/onboarding', asyncHandler(async (req, res) => {
   sendAuthResponse(res, user.id, user.tokenVersion);
 }));
 
-router.post('/login', asyncHandler(async (req, res) => {
-  const { email } = req.body;
-  if (!isNonEmptyString(email)) throw new ApiError(400, 'Email is required');
-
-  const user = await UserModel.findOne({ email: email.toLowerCase().trim(), deletedAt: { $exists: false } });
-  if (!user) {
-    throw new ApiError(404, 'No account found with this email. Please sign up first.');
-  }
-
-  user.lastActiveAt = new Date();
-  await user.save();
-
-  sendAuthResponse(res, user.id, user.tokenVersion);
-}));
-
 router.post('/refresh', asyncHandler(async (req, res) => {
   const token = parseCookie(req.headers.cookie || '').refreshToken;
   const payload = token ? verifyToken(token, 'refresh') : null;

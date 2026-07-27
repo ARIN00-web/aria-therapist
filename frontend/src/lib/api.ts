@@ -10,6 +10,15 @@ export function getAccessToken() {
   return accessToken;
 }
 
+// Registered by AuthContext. Called when a protected request is definitively
+// unauthenticated (401 that we could not recover from). Lets the app clear the
+// current user and redirect to /login — important for OAuth cookie users, who
+// have no Bearer token to refresh.
+let onUnauthenticated: (() => void) | null = null;
+export function setUnauthenticatedHandler(fn: (() => void) | null) {
+  onUnauthenticated = fn;
+}
+
 async function refreshAccessToken(): Promise<string | null> {
   try {
     const res = await fetch(`${API_BASE}/api/custom-auth/refresh`, {
@@ -53,6 +62,12 @@ export async function apiFetch<T = unknown>(
   }
 
   if (!res.ok) {
+    // A surviving 401 means the session is gone (expired OAuth cookie, or a
+    // refresh that could not be renewed). Notify the app so it can redirect.
+    if (res.status === 401) {
+      accessToken = null;
+      onUnauthenticated?.();
+    }
     const body = await res.json().catch(() => ({}));
     const message =
       (body as { error?: string; message?: string }).error ||
@@ -85,11 +100,18 @@ export const authApi = {
     body: JSON.stringify(body),
   }),
 
-  login: (email: string) =>
-    apiFetch<{ accessToken: string }>('/api/custom-auth/login', {
-      method: 'POST',
-      body: JSON.stringify({ email }),
-    }),
+  // Completes onboarding for a user created via Google OAuth. Name/email come
+  // from Google, so we only collect modality, questions, and consent here.
+  // Authenticated via the better-auth cookie (or Bearer) — apiFetch handles both.
+  completeOnboardingOauth: (body: {
+    preferredModality: string;
+    timezone: string;
+    onboardingAnswers: Record<string, unknown>;
+    consentAccepted: boolean;
+  }) => apiFetch<{ user: User }>('/api/custom-auth/complete-onboarding-oauth', {
+    method: 'POST',
+    body: JSON.stringify(body),
+  }),
 
   logout: () =>
     apiFetch('/api/custom-auth/logout', { method: 'POST' }),
@@ -176,6 +198,10 @@ export interface User {
   preferredModality: string;
   timezone: string;
   createdAt: string;
+  // Returned by GET /api/custom-auth/me. `consentAcceptedAt` is the signal for
+  // whether a (Google) user still needs to complete onboarding.
+  consentAcceptedAt?: string | null;
+  onboardingAnswers?: Record<string, unknown>;
 }
 
 export interface Session {

@@ -8,18 +8,21 @@ import {
   useCallback,
   type ReactNode,
 } from 'react';
-import { authApi, setAccessToken, type User } from '@/lib/api';
+import { authApi, setAccessToken, setUnauthenticatedHandler, type User } from '@/lib/api';
+import { getSession, signOut } from '@/lib/auth-client';
 
 interface AuthState {
   user: User | null;
   loading: boolean;
-  login: (email: string) => Promise<void>;
   logout: () => Promise<void>;
   setUser: (user: User | null) => void;
   setToken: (token: string) => void;
+  refresh: () => Promise<User | null>;
 }
 
 const AuthContext = createContext<AuthState | null>(null);
+
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001';
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -29,38 +32,82 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const { user } = await authApi.me();
       setUser(user);
+      return user;
     } catch {
       setUser(null);
-    } finally {
-      setLoading(false);
+      return null;
     }
   }, []);
 
-  useEffect(() => {
-    // Try to refresh token on mount (uses httpOnly cookie)
-    fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001'}/api/custom-auth/refresh`, {
-      method: 'POST',
-      credentials: 'include',
-    })
-      .then((r) => r.json())
-      .then((data) => {
+  // Resolve the current user by trying both auth modes:
+  //  1. Custom-JWT refresh cookie (existing email/JWT users) → access token + /me
+  //  2. better-auth cookie session (Google OAuth users) → /me via cookie
+  // Whichever yields a user wins. /me works for cookie-only users because the
+  // backend requireAuth middleware falls back to the better-auth session.
+  const resolveUser = useCallback(async (): Promise<User | null> => {
+    // Mode 1: custom-JWT refresh.
+    try {
+      const res = await fetch(`${API_BASE}/api/custom-auth/refresh`, {
+        method: 'POST',
+        credentials: 'include',
+      });
+      if (res.ok) {
+        const data = await res.json();
         if (data.accessToken) {
           setAccessToken(data.accessToken);
-          return loadUser();
+          const u = await loadUser();
+          if (u) return u;
         }
-      })
-      .catch(() => {})
-      .finally(() => setLoading(false));
+      }
+    } catch {
+      /* fall through to OAuth */
+    }
+
+    // Mode 2: better-auth cookie session.
+    try {
+      const session = await getSession();
+      if (session?.data?.user) {
+        setAccessToken(null); // cookie auth — no Bearer token
+        const u = await loadUser();
+        if (u) return u;
+      }
+    } catch {
+      /* no session */
+    }
+
+    setUser(null);
+    return null;
   }, [loadUser]);
 
-  const login = useCallback(async (email: string) => {
-    const { accessToken } = await authApi.login(email);
-    setAccessToken(accessToken);
-    await loadUser();
-  }, [loadUser]);
+  useEffect(() => {
+    let active = true;
+    resolveUser().finally(() => {
+      if (active) setLoading(false);
+    });
+    return () => {
+      active = false;
+    };
+  }, [resolveUser]);
+
+  // When a protected request comes back unauthenticated (e.g. an expired OAuth
+  // cookie with no Bearer token to refresh), drop the user so route guards send
+  // them to /login. Only acts once loading has settled to avoid fighting the
+  // initial probe, where a /me 401 is an expected "not logged in" signal.
+  useEffect(() => {
+    setUnauthenticatedHandler(() => {
+      setAccessToken(null);
+      setUser(null);
+    });
+    return () => setUnauthenticatedHandler(null);
+  }, []);
 
   const logout = useCallback(async () => {
-    await authApi.logout().catch(() => {});
+    // Clear both auth modes so a user signed in via either path is fully
+    // logged out. Each is tolerant of the other mode having no session.
+    await Promise.allSettled([
+      authApi.logout(),
+      signOut(),
+    ]);
     setAccessToken(null);
     setUser(null);
   }, []);
@@ -70,8 +117,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     loadUser();
   }, [loadUser]);
 
+  const refresh = useCallback(() => resolveUser(), [resolveUser]);
+
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout, setUser, setToken }}>
+    <AuthContext.Provider value={{ user, loading, logout, setUser, setToken, refresh }}>
       {children}
     </AuthContext.Provider>
   );

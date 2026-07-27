@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { authApi } from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
@@ -14,35 +14,45 @@ const QUESTIONS = [
   { key: 'previousTherapy', label: 'Have you tried therapy or counselling before?', placeholder: 'Optional — share as much or as little as you like' },
 ];
 
-type Step = 'welcome' | 'info' | 'modality' | 'questions' | 'consent';
+type Step = 'modality' | 'questions' | 'consent';
 
 export default function OnboardingPage() {
   const router = useRouter();
-  const { setToken } = useAuth();
+  const { user, loading: authLoading, setUser, refresh } = useAuth();
 
-  const [step, setStep] = useState<Step>('welcome');
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
+  const [step, setStep] = useState<Step>('modality');
   const [modality, setModality] = useState('Auto');
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [consent, setConsent] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
+  // Onboarding is only reachable after Google OAuth. Guard the route:
+  //  - not authenticated → back to login
+  //  - already completed consent → straight to dashboard
+  useEffect(() => {
+    if (authLoading) return;
+    if (!user) {
+      router.replace('/login');
+    } else if (user.consentAcceptedAt) {
+      router.replace('/dashboard');
+    }
+  }, [authLoading, user, router]);
+
   async function handleSubmit() {
     if (!consent) { setError('Please accept the terms to continue.'); return; }
     setError('');
     setLoading(true);
     try {
-      const { accessToken } = await authApi.onboard({
-        name: name.trim(),
-        email: email.trim().toLowerCase(),
+      const { user: updated } = await authApi.completeOnboardingOauth({
         preferredModality: modality,
         timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC',
         onboardingAnswers: answers,
         consentAccepted: true,
       });
-      setToken(accessToken);
+      // Reflect the completed onboarding in context so guards see it immediately.
+      if (updated) setUser(updated);
+      else await refresh();
       router.replace('/dashboard');
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Something went wrong');
@@ -51,76 +61,28 @@ export default function OnboardingPage() {
     }
   }
 
+  // While the auth guard resolves (or is redirecting), avoid flashing the form.
+  if (authLoading || !user || user.consentAcceptedAt) {
+    return (
+      <div style={styles.page}>
+        <div style={styles.card} className="glass">
+          <p style={styles.sub}>Loading…</p>
+        </div>
+      </div>
+    );
+  }
+
+  const firstName = user.name?.split(' ')[0] || 'there';
+
   return (
     <div style={styles.page}>
       <div style={styles.card} className="glass animate-fade-in">
         <ProgressBar step={step} />
 
-        {step === 'welcome' && (
-          <div style={styles.section}>
-            <div style={styles.bigIcon}>✦</div>
-            <h1 style={styles.heading}>Meet Aria</h1>
-            <p style={styles.body}>
-              Aria is a compassionate AI companion here to help you explore your thoughts,
-              process emotions, and find clarity — at your own pace, any time.
-            </p>
-            <p style={{ ...styles.body, color: 'var(--text-muted)', fontSize: 13 }}>
-              Aria is not a replacement for professional mental health care. If you are in crisis,
-              please reach out to a qualified professional or emergency services.
-            </p>
-            <Button style={{ width: '100%', marginTop: 8 }} onClick={() => setStep('info')}>
-              Get started
-            </Button>
-            <p style={styles.loginHint}>
-              Already have an account?{' '}
-              <a href="/login" style={styles.link}>Sign in</a>
-            </p>
-          </div>
-        )}
-
-        {step === 'info' && (
-          <div style={styles.section}>
-            <h2 style={styles.heading}>Tell us about yourself</h2>
-            <p style={styles.sub}>This helps Aria personalise your experience.</p>
-            <div style={styles.fields}>
-              <Field label="Your name">
-                <input
-                  style={styles.input}
-                  placeholder="First name or nickname"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  autoFocus
-                />
-              </Field>
-              <Field label="Email address">
-                <input
-                  style={styles.input}
-                  type="email"
-                  placeholder="you@example.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                />
-              </Field>
-            </div>
-            {error && <p style={styles.error}>{error}</p>}
-            <div style={styles.row}>
-              <Button variant="soft" onClick={() => setStep('welcome')}>Back</Button>
-              <Button
-                onClick={() => {
-                  if (!name.trim() || !email.trim()) { setError('Name and email are required.'); return; }
-                  setError('');
-                  setStep('modality');
-                }}
-              >
-                Continue
-              </Button>
-            </div>
-          </div>
-        )}
-
         {step === 'modality' && (
           <div style={styles.section}>
-            <h2 style={styles.heading}>Preferred approach</h2>
+            <div style={styles.bigIcon}>✦</div>
+            <h1 style={styles.heading}>Welcome, {firstName}</h1>
             <p style={styles.sub}>
               Choose how you&apos;d like Aria to work with you. Auto lets Aria decide based on the conversation.
             </p>
@@ -139,7 +101,6 @@ export default function OnboardingPage() {
               ))}
             </div>
             <div style={styles.row}>
-              <Button variant="soft" onClick={() => setStep('info')}>Back</Button>
               <Button onClick={() => setStep('questions')}>Continue</Button>
             </div>
           </div>
@@ -211,7 +172,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 }
 
 function ProgressBar({ step }: { step: Step }) {
-  const steps: Step[] = ['welcome', 'info', 'modality', 'questions', 'consent'];
+  const steps: Step[] = ['modality', 'questions', 'consent'];
   const idx = steps.indexOf(step);
   return (
     <div style={{ display: 'flex', gap: 4, marginBottom: 8 }}>
@@ -238,7 +199,7 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: 'center',
     justifyContent: 'center',
     padding: 20,
-    background: 'radial-gradient(ellipse at 50% 0%, rgba(124,106,247,0.08) 0%, transparent 70%)',
+    background: 'radial-gradient(ellipse at 50% 0%, var(--accent-glow) 0%, transparent 70%)',
   },
   card: { width: '100%', maxWidth: 480, padding: '32px 36px' },
   section: { display: 'flex', flexDirection: 'column', gap: 16 },
@@ -286,6 +247,5 @@ const styles: Record<string, React.CSSProperties> = {
   },
   consentText: { fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.6 },
   checkRow: { display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' },
-  loginHint: { fontSize: 13, color: 'var(--text-muted)', textAlign: 'center' },
   link: { color: 'var(--accent)', textDecoration: 'none', fontWeight: 600 },
 };

@@ -6,12 +6,15 @@ import AppShell from '@/components/AppShell';
 import { useAuth } from '@/context/AuthContext';
 import { sessionsApi, wellnessApi, type Session, type WellnessSummary } from '@/lib/api';
 import { Card, Skeleton, MOOD_EMOJI } from '@/components/ui';
+import { FadeIn } from '@/components/motion';
+import { useChartTheme } from '@/lib/chartTheme';
 import {
   XAxis, YAxis, Tooltip, ResponsiveContainer, Area, AreaChart
 } from 'recharts';
 
 export default function DashboardPage() {
   const { user } = useAuth();
+  const chart = useChartTheme();
   const [sessions, setSessions] = useState<Session[]>([]);
   const [wellness, setWellness] = useState<WellnessSummary | null>(null);
   const [loading, setLoading] = useState(true);
@@ -38,20 +41,23 @@ export default function DashboardPage() {
   return (
     <AppShell>
       <div style={styles.page}>
-        <div style={styles.header}>
-          <div>
-            <h1 style={styles.greeting}>
-              {getGreeting()}, {user?.name?.split(' ')[0]} ✦
-            </h1>
-            <p style={styles.sub}>Here&apos;s how you&apos;ve been doing.</p>
+        <FadeIn>
+          <div style={styles.header}>
+            <div>
+              <h1 style={styles.greeting}>
+                {getGreeting()}, {user?.name?.split(' ')[0]} ✦
+              </h1>
+              <p style={styles.sub}>Here&apos;s how you&apos;ve been doing.</p>
+            </div>
+            <Link href="/chat" style={styles.startBtn}>
+              Start a session
+            </Link>
           </div>
-          <Link href="/chat" style={styles.startBtn}>
-            Start a session
-          </Link>
-        </div>
+        </FadeIn>
 
         {/* Stats row */}
-        <div style={styles.statsRow}>
+        <FadeIn delay={0.05}>
+          <div style={styles.statsRow}>
           <StatCard
             label="Sessions"
             value={loading ? null : sessions.length}
@@ -77,6 +83,7 @@ export default function DashboardPage() {
             loading={loading}
           />
         </div>
+        </FadeIn>
 
         <div style={styles.grid}>
           {/* Mood chart */}
@@ -91,18 +98,18 @@ export default function DashboardPage() {
                 <AreaChart data={moodData} margin={{ top: 8, right: 8, left: -24, bottom: 0 }}>
                   <defs>
                     <linearGradient id="moodGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#7c6af7" stopOpacity={0.3} />
-                      <stop offset="95%" stopColor="#7c6af7" stopOpacity={0} />
+                      <stop offset="5%" stopColor={chart.accent} stopOpacity={0.3} />
+                      <stop offset="95%" stopColor={chart.accent} stopOpacity={0} />
                     </linearGradient>
                   </defs>
-                  <XAxis dataKey="date" tick={{ fontSize: 11, fill: '#6b6b80' }} axisLine={false} tickLine={false} />
-                  <YAxis domain={[1, 10]} tick={{ fontSize: 11, fill: '#6b6b80' }} axisLine={false} tickLine={false} />
+                  <XAxis dataKey="date" tick={{ fontSize: 11, fill: chart.muted }} axisLine={false} tickLine={false} />
+                  <YAxis domain={[1, 10]} tick={{ fontSize: 11, fill: chart.muted }} axisLine={false} tickLine={false} />
                   <Tooltip
-                    contentStyle={{ background: '#16161f', border: '1px solid #1e1e2e', borderRadius: 8, fontSize: 12 }}
-                    labelStyle={{ color: '#6b6b80' }}
-                    itemStyle={{ color: '#7c6af7' }}
+                    contentStyle={{ background: chart.tooltipBg, border: `1px solid ${chart.tooltipBorder}`, borderRadius: 8, fontSize: 12 }}
+                    labelStyle={{ color: chart.muted }}
+                    itemStyle={{ color: chart.accent }}
                   />
-                  <Area type="monotone" dataKey="mood" stroke="#7c6af7" strokeWidth={2} fill="url(#moodGrad)" dot={{ fill: '#7c6af7', r: 3 }} />
+                  <Area type="monotone" dataKey="mood" stroke={chart.accent} strokeWidth={2} fill="url(#moodGrad)" dot={{ fill: chart.accent, r: 3 }} />
                 </AreaChart>
               </ResponsiveContainer>
             )}

@@ -5,6 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import AppShell from '@/components/AppShell';
 import { wellnessApi, type WellnessActivity, type WellnessSummary } from '@/lib/api';
 import { Button, Card, EmptyState, MoodSlider, Skeleton } from '@/components/ui';
+import { useChartTheme } from '@/lib/chartTheme';
 import {
   AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer
 } from 'recharts';
@@ -78,6 +79,7 @@ function OverviewTab({ summary, loading, onMoodLogged }: {
   const [moodLabel, setMoodLabel] = useState('');
   const [logging, setLogging] = useState(false);
   const [logged, setLogged] = useState(false);
+  const chart = useChartTheme();
 
   async function logMood() {
     setLogging(true);
@@ -124,17 +126,17 @@ function OverviewTab({ summary, loading, onMoodLogged }: {
             <AreaChart data={moodData} margin={{ top: 8, right: 8, left: -24, bottom: 0 }}>
               <defs>
                 <linearGradient id="moodG" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#7c6af7" stopOpacity={0.3} />
-                  <stop offset="95%" stopColor="#7c6af7" stopOpacity={0} />
+                  <stop offset="5%" stopColor={chart.accent} stopOpacity={0.3} />
+                  <stop offset="95%" stopColor={chart.accent} stopOpacity={0} />
                 </linearGradient>
               </defs>
-              <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#6b6b80' }} axisLine={false} tickLine={false} />
-              <YAxis domain={[1, 10]} tick={{ fontSize: 10, fill: '#6b6b80' }} axisLine={false} tickLine={false} />
+              <XAxis dataKey="date" tick={{ fontSize: 10, fill: chart.muted }} axisLine={false} tickLine={false} />
+              <YAxis domain={[1, 10]} tick={{ fontSize: 10, fill: chart.muted }} axisLine={false} tickLine={false} />
               <Tooltip
-                contentStyle={{ background: '#16161f', border: '1px solid #1e1e2e', borderRadius: 8, fontSize: 12 }}
-                itemStyle={{ color: '#7c6af7' }}
+                contentStyle={{ background: chart.tooltipBg, border: `1px solid ${chart.tooltipBorder}`, borderRadius: 8, fontSize: 12 }}
+                itemStyle={{ color: chart.accent }}
               />
-              <Area type="monotone" dataKey="mood" stroke="#7c6af7" strokeWidth={2} fill="url(#moodG)" dot={{ fill: '#7c6af7', r: 3 }} />
+              <Area type="monotone" dataKey="mood" stroke={chart.accent} strokeWidth={2} fill="url(#moodG)" dot={{ fill: chart.accent, r: 3 }} />
             </AreaChart>
           </ResponsiveContainer>
         )}

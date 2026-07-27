@@ -4,7 +4,7 @@ import { useEffect } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
-import { Spinner } from './ui';
+import { Spinner, ThemeToggle } from './ui';
 
 const NAV = [
   { href: '/dashboard', label: 'Home', icon: '◈' },
@@ -46,8 +46,16 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         }
         .app-main { flex: 1; min-width: 0; }
         .mobile-nav { display: none; }
+        .mobile-topbar { display: none; }
         @media (max-width: 768px) {
           .sidebar { display: none; }
+          .mobile-topbar {
+            display: flex; align-items: center; justify-content: space-between;
+            position: sticky; top: 0; z-index: 40;
+            padding: 12px 16px;
+            background: var(--bg-card);
+            border-bottom: 1px solid var(--border);
+          }
           .mobile-nav {
             display: flex;
             position: fixed; bottom: 0; left: 0; right: 0;
@@ -60,7 +68,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         }
         .nav-item {
           display: flex; align-items: center; gap: 12px;
-          padding: 10px 12px; border-radius: 8px;
+          padding: 10px 12px; border-radius: 12px;
           color: var(--text-muted); text-decoration: none;
           font-size: 14px; font-weight: 500;
           transition: all 0.15s;
@@ -110,17 +118,29 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                 <div style={{ fontSize: 11, color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{user.email}</div>
               </div>
             </div>
-            <button onClick={logout} style={{
-              width: '100%', padding: '8px', borderRadius: 8,
-              background: 'transparent', border: '1px solid var(--border)',
-              color: 'var(--text-muted)', fontSize: 13, cursor: 'pointer',
-            }}>
-              Sign out
-            </button>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button onClick={logout} style={{
+                flex: 1, padding: '8px', borderRadius: 10,
+                background: 'transparent', border: '1px solid var(--border)',
+                color: 'var(--text-muted)', fontSize: 13, cursor: 'pointer',
+              }}>
+                Sign out
+              </button>
+              <ThemeToggle />
+            </div>
           </div>
         </aside>
 
-        <main className="app-main">{children}</main>
+        <main className="app-main">
+          <div className="mobile-topbar">
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ fontSize: 18, color: 'var(--accent)' }}>✦</span>
+              <span style={{ fontSize: 16, fontWeight: 700 }}>Aria</span>
+            </div>
+            <ThemeToggle />
+          </div>
+          {children}
+        </main>
 
         <nav className="mobile-nav">
           {NAV.slice(0, 5).map((item) => {
