@@ -469,7 +469,8 @@ const styles: Record<string, React.CSSProperties> = {
   tab: {
     padding: '8px 16px', background: 'none', border: 'none',
     color: 'var(--text-muted)', fontSize: 14, fontWeight: 500, cursor: 'pointer',
-    borderBottom: '2px solid transparent', marginBottom: -1, transition: 'all 0.15s',
+    borderBottomWidth: 2, borderBottomStyle: 'solid', borderBottomColor: 'transparent',
+    marginBottom: -1, transition: 'all 0.15s',
   },
   tabActive: { color: 'var(--accent)', borderBottomColor: 'var(--accent)', fontWeight: 600 },
   grid2: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 },
