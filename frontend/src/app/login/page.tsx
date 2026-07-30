@@ -3,8 +3,9 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
-import { signIn } from '@/lib/auth-client';
 import { Button } from '@/components/ui';
+
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001';
 
 export default function LoginPage() {
   const [error, setError] = useState('');
@@ -23,14 +24,23 @@ export default function LoginPage() {
     setError('');
     setLoading(true);
     try {
-      // better-auth redirects the browser to Google. On return it hits the
-      // backend callback, sets the session cookie, and sends the browser to
-      // callbackURL, where we decide onboarding vs dashboard.
-      await signIn.social({
+      const res = await fetch(`${API_BASE}/api/auth/sign-in/social`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
         provider: 'google',
         callbackURL: `${window.location.origin}/auth/callback`,
         errorCallbackURL: `${window.location.origin}/login?error=oauth`,
+        }),
       });
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || typeof data.url !== 'string') {
+        throw new Error(data.message || data.error || 'Could not start Google sign-in');
+      }
+
+      window.location.href = data.url;
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Could not start Google sign-in';
       setError(msg);
