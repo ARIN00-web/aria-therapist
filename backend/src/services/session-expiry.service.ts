@@ -13,11 +13,6 @@ export function hasSessionExpired(session: Pick<ISession, 'startedAt'>, now = ne
   return now >= sessionEndsAt(session);
 }
 
-/**
- * End an overdue session without requiring a mood check-out.  Ending is saved
- * before summary generation so an unavailable LLM can never leave a session
- * active past its five-hour limit.
- */
 export async function expireSessionIfNeeded(session: ISession): Promise<boolean> {
   if (session.status !== 'active' || !hasSessionExpired(session)) return false;
 
