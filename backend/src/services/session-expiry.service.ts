@@ -34,6 +34,7 @@ export async function expireSessionIfNeeded(session: ISession): Promise<boolean>
   return true;
 }
 
+/** Used only by long-running server deployments; Vercel uses request-time expiry. */
 export async function expireActiveSessions(): Promise<void> {
   const cutoff = new Date(Date.now() - SESSION_MAX_DURATION_MS);
   const expiredSessions = await SessionModel.find({

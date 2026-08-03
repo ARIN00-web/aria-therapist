@@ -84,11 +84,6 @@ export async function runIngestion() {
   const dataDir = path.join(__dirname, '../../data'); 
   ensureDirExists(dataDir);
 
-  if (!config.geminiApiKey) {
-    console.error('[RAG Ingestion] Error: GEMINI_API_KEY is not set in the environment.');
-    process.exit(1);
-  }
-
   if (!config.qdrantUrl) {
     console.error('[RAG Ingestion] Error: QDRANT_URL is not set in the environment.');
     process.exit(1);

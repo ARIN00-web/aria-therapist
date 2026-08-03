@@ -1,0 +1,7 @@
+# Source documents are used only by the offline RAG ingestion script.
+# The deployed API reads retrieved context from Qdrant and never needs them.
+data/
+dist/
+node_modules/
+.env
+.env.local

@@ -11,4 +11,4 @@ This directory holds the reference materials that you want the Aria AI therapist
    ```
 4. Verify your Qdrant vector database has points successfully stored.
 
-*Note: Ensure your Qdrant collection is configured with **768 dimensions** (to match Gemini's `text-embedding-004` embedding space).*
+*Note: The ingestion pipeline uses the local `Xenova/all-MiniLM-L6-v2` embedding model, so the Qdrant collection must use **384 dimensions**.*

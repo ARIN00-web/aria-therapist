@@ -12,6 +12,10 @@ cp .env.example .env
 npm run dev
 ```
 
+## Deployment
+
+For a free Vercel + MongoDB Atlas deployment, follow [DEPLOYMENT.md](DEPLOYMENT.md).
+
 Frontend:
 
 ```bash

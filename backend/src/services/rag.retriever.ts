@@ -1,5 +1,7 @@
 import { getConfig } from '../config/env';
-import { getLocalEmbedding } from './local.embedding';
+
+const QDRANT_RETRY_DELAY_MS = 30_000;
+let qdrantUnavailableUntil = 0;
 
 export interface RetrievedChunk {
   text: string;
@@ -11,6 +13,7 @@ export interface RetrievedChunk {
 export async function retrieveClinicalContext(message: string, modality?: string): Promise<RetrievedChunk[]> {
   const config = getConfig();
   if (!config.qdrantUrl) return [];
+  if (Date.now() < qdrantUnavailableUntil) return [];
 
   const embedding = await embedText(message);
   if (!embedding.length) return [];
@@ -39,7 +42,11 @@ export async function retrieveClinicalContext(message: string, modality?: string
       })
     });
 
-    if (!response.ok) return [];
+    if (!response.ok) {
+      if (response.status >= 500) qdrantUnavailableUntil = Date.now() + QDRANT_RETRY_DELAY_MS;
+      console.warn('[rag:qdrant_unavailable]', { status: response.status });
+      return [];
+    }
 
     const data = await response.json() as {
       result?: Array<{ score: number; payload?: Record<string, unknown> }>;
@@ -52,13 +59,27 @@ export async function retrieveClinicalContext(message: string, modality?: string
       score: item.score
     })).filter((item) => item.text);
   } catch (error) {
-    console.error('[RAG Retriever] Qdrant search failed:', error);
+    qdrantUnavailableUntil = Date.now() + QDRANT_RETRY_DELAY_MS;
+    console.warn('[rag:qdrant_unavailable]', { code: networkErrorCode(error) });
     return [];
   }
 }
 
+function networkErrorCode(error: unknown): string {
+  if (error && typeof error === 'object' && 'cause' in error) {
+    const cause = (error as { cause?: unknown }).cause;
+    if (cause && typeof cause === 'object' && 'code' in cause) {
+      return String((cause as { code?: unknown }).code || 'unknown');
+    }
+  }
+  return 'unknown';
+}
+
 async function embedText(message: string): Promise<number[]> {
   try {
+    // Keep the optional local embedding runtime out of cold starts when RAG is
+    // disabled (the default production setup).
+    const { getLocalEmbedding } = await import('./local.embedding');
     return await getLocalEmbedding(message);
   } catch (error) {
     console.error('[RAG Retriever] Local embedding generation failed:', error);

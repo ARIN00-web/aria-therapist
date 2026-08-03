@@ -145,7 +145,9 @@ function sendAuthResponse(res: Response, userId: string, tokenVersion: number) {
 
   res.cookie('refreshToken', refreshToken, {
     httpOnly: true,
-    sameSite: 'strict',
+    // The frontend and API are separate Vercel deployments in production.
+    // Cross-site requests must therefore opt in to sending the refresh cookie.
+    sameSite: config.nodeEnv === 'production' ? 'none' : 'strict',
     secure: config.nodeEnv === 'production',
     maxAge: 30 * 24 * 60 * 60 * 1000
   });
