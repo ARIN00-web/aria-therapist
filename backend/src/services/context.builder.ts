@@ -1,5 +1,5 @@
 import { Types } from 'mongoose';
-import { MemoryModel, type IMemoryProfile } from '../models/Memory.model';
+import { MemoryModel, decryptMemoryProfile, type IMemoryProfile } from '../models/Memory.model';
 import { SessionModel } from '../models/Session.model';
 import { UserModel } from '../models/User.model';
 import type { ChatMessage } from './llm.client';
@@ -102,7 +102,7 @@ export async function buildTherapyContext(
     throw new Error('Session context not found');
   }
 
-  const profile = memory?.profile || emptyProfile();
+  const profile = memory ? decryptMemoryProfile(memory.profile) : emptyProfile();
   
   const messages = session.messages.slice(-12).map((message) => ({
     role: message.role,

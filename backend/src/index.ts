@@ -14,6 +14,7 @@ import wellnessRoutes from './routes/wellness.routes';
 import { errorHandler } from './utils/errors';
 import { toNodeHandler } from 'better-auth/node';
 import { auth } from './config/auth';
+import { startSessionExpirySweep } from './services/session-expiry.service';
 
 const app = express();
 const config = getConfig();
@@ -83,6 +84,7 @@ app.use(errorHandler);
 connectDatabase()
   .then(() => {
     app.locals.dbReady = true;
+    startSessionExpirySweep();
     app.listen(config.port, () => {
       console.log(`[server:start] port=${config.port}`);
     });

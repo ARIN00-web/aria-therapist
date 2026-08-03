@@ -10,6 +10,7 @@ import { createSessionSummaryCard, updateLongTermMemory } from '../services/memo
 import { retrieveClinicalContext } from '../services/rag.retriever';
 import { streamGeminiResponse } from '../services/llm.client';
 import { updateRollingSummaryIfNeeded } from '../services/summarizer';
+import { expireSessionIfNeeded } from '../services/session-expiry.service';
 import { ApiError, asyncHandler } from '../utils/errors';
 
 const router = Router();
@@ -34,7 +35,9 @@ router.get('/active', asyncHandler(async (req, res) => {
     status: 'active'
   }).sort({ startedAt: -1 });
 
-  res.json({ session });
+  if (session) await expireSessionIfNeeded(session);
+
+  res.json({ session: session?.status === 'active' ? session : null });
 }));
 
 router.post('/', asyncHandler(async (req, res) => {
@@ -50,8 +53,11 @@ router.post('/', asyncHandler(async (req, res) => {
   }).sort({ startedAt: -1 });
 
   if (existingActiveSession) {
-    res.json({ session: existingActiveSession });
-    return;
+    await expireSessionIfNeeded(existingActiveSession);
+    if (existingActiveSession.status === 'active') {
+      res.json({ session: existingActiveSession });
+      return;
+    }
   }
 
   const session = await SessionModel.create({
@@ -78,6 +84,7 @@ router.post('/:sessionId/messages', asyncHandler(async (req, res) => {
   }
 
   const session = await findOwnedSession(userId, String(req.params.sessionId));
+  await expireSessionIfNeeded(session);
   if (session.status !== 'active') throw new ApiError(409, 'This session is not active');
 
   const crisis = await detectCrisis(message);

@@ -61,6 +61,20 @@ export default function ChatPage() {
     };
   }, []);
 
+  useEffect(() => {
+    if (!session || phase !== 'chat') return;
+
+    const remainingMs = new Date(session.startedAt).getTime() + (5 * 60 * 60 * 1_000) - Date.now();
+    const timeout = window.setTimeout(() => {
+      setError('This session has ended after its five-hour limit.');
+      setStreaming(false);
+      setPhase('mood-in');
+      setSession(null);
+    }, Math.max(0, remainingMs));
+
+    return () => window.clearTimeout(timeout);
+  }, [session, phase]);
+
   async function startSession() {
     setLoading(true);
     setError('');

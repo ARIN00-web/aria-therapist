@@ -23,6 +23,46 @@ const encryptedString = {
   get: (val: string) => decrypt(val)
 };
 
+/**
+ * Mongoose does not consistently apply nested getters when serialising a
+ * document returned from every query path. Decrypt the profile explicitly at
+ * the application boundary so API responses and AI context never expose
+ * ciphertext. This also accepts already-decrypted values.
+ */
+export function decryptMemoryProfile(profile: IMemoryProfile): IMemoryProfile {
+  return {
+    recurringThemes: profile.recurringThemes.map(decryptIfEncrypted),
+    keyPeople: profile.keyPeople.map((person) => ({
+      name: decryptIfEncrypted(person.name),
+      relationship: decryptIfEncrypted(person.relationship),
+      dynamic: decryptIfEncrypted(person.dynamic)
+    })),
+    triggers: profile.triggers.map(decryptIfEncrypted),
+    copingStrategies: profile.copingStrategies.map((strategy) => ({
+      strategy: decryptIfEncrypted(strategy.strategy),
+      effectiveness: decryptIfEncrypted(strategy.effectiveness)
+    })),
+    progressNotes: profile.progressNotes.map(decryptIfEncrypted),
+    moodTrend: decryptIfEncrypted(profile.moodTrend),
+    followUpTopics: profile.followUpTopics.map(decryptIfEncrypted)
+  };
+}
+
+function decryptIfEncrypted(value: string | undefined): string {
+  if (!value) return value || '';
+
+  // AES-256-GCM values produced by encrypt() are iv:authTag:ciphertext in hex.
+  // Older profile updates may have encrypted a raw nested value more than once,
+  // so unwrap until we reach the original text.
+  let decrypted = value;
+  while (/^[0-9a-f]{24}:[0-9a-f]{32}:[0-9a-f]+$/i.test(decrypted)) {
+    const nextValue = decrypt(decrypted);
+    if (nextValue === decrypted || nextValue === '[Encrypted Content - Decryption Failed]') break;
+    decrypted = nextValue;
+  }
+  return decrypted;
+}
+
 const MemorySchema = new Schema<IMemory>({
   userId: { type: Schema.Types.ObjectId, ref: 'User', required: true, unique: true, index: true },
   profile: {

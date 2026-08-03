@@ -67,4 +67,6 @@ const SessionSchema = new Schema<ISession>({
   toObject: { getters: true }
 });
 
+SessionSchema.index({ status: 1, startedAt: 1 });
+
 export const SessionModel = model<ISession>('Session', SessionSchema);

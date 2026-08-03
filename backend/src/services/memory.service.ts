@@ -1,5 +1,5 @@
 import { Types } from 'mongoose';
-import { MemoryModel, type IMemoryProfile } from '../models/Memory.model';
+import { MemoryModel, decryptMemoryProfile, type IMemoryProfile } from '../models/Memory.model';
 import type { ISession } from '../models/Session.model';
 import { callGeminiText } from './llm.client';
 
@@ -17,6 +17,7 @@ export async function ensureMemory(userId: string) {
 
 export async function updateLongTermMemory(userId: string, session: ISession): Promise<void> {
   const memory = await ensureMemory(userId);
+  const currentProfile = decryptMemoryProfile(memory.profile);
   const transcript = session.messages.map((message) => `${message.role}: ${message.content}`).join('\n');
 
   const generated = await callGeminiText({
@@ -25,7 +26,7 @@ Return only JSON with keys: recurringThemes, keyPeople, triggers, copingStrategi
 Do not diagnose or include medications.`,
     messages: [{
       role: 'user',
-      content: `Existing profile:\n${JSON.stringify(memory.profile)}\n\nSession summary:\n${session.rollingSummary || ''}\n\nRecent transcript:\n${transcript}`
+      content: `Existing profile:\n${JSON.stringify(currentProfile)}\n\nSession summary:\n${session.rollingSummary || ''}\n\nRecent transcript:\n${transcript}`
     }],
     maxTokens: 700,
     timeoutMs: 10_000,
@@ -34,12 +35,15 @@ Do not diagnose or include medications.`,
 
   const parsed = parseProfile(generated);
   if (parsed) {
-    memory.profile = mergeProfiles(memory.profile, parsed);
+    memory.profile = mergeProfiles(currentProfile, parsed);
   } else {
-    memory.profile.progressNotes = dedupe([
-      ...memory.profile.progressNotes,
+    memory.profile = {
+      ...currentProfile,
+      progressNotes: dedupe([
+      ...currentProfile.progressNotes,
       session.summaryCard?.reflection || session.rollingSummary || 'Completed a support session.'
-    ]).slice(-20);
+      ]).slice(-20)
+    };
   }
 
   memory.lastUpdated = new Date();
