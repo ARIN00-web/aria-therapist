@@ -83,10 +83,19 @@ export async function buildTherapyContext(
   sessionId: string,
   clinicalContext: string[]
 ): Promise<TherapyContext> {
-  const [user, session, memory] = await Promise.all([
+  const userObjectId = new Types.ObjectId(userId);
+  const [user, session, memory, recentSessions] = await Promise.all([
     UserModel.findById(userId),
-    SessionModel.findOne({ _id: sessionId, userId: new Types.ObjectId(userId) }),
-    MemoryModel.findOne({ userId: new Types.ObjectId(userId) })
+    SessionModel.findOne({ _id: sessionId, userId: userObjectId }),
+    MemoryModel.findOne({ userId: userObjectId }),
+    SessionModel.find({
+      _id: { $ne: new Types.ObjectId(sessionId) },
+      userId: userObjectId,
+      status: 'ended'
+    })
+      .select('startedAt rollingSummary summaryCard')
+      .sort({ endedAt: -1, startedAt: -1 })
+      .limit(3)
   ]);
 
   if (!user || !session) {
@@ -115,6 +124,21 @@ export async function buildTherapyContext(
     profile.followUpTopics.length ? `Suggested follow-up topics: ${profile.followUpTopics.join(', ')}` : null,
   ].filter(Boolean).join('\n');
 
+  const recentSessionBlock = recentSessions.length
+    ? [
+        '## Recent Session Continuity',
+        ...recentSessions.map((recentSession, index) => {
+          const details = [
+            recentSession.rollingSummary ? `summary: ${recentSession.rollingSummary}` : null,
+            recentSession.summaryCard?.reflection ? `reflection: ${recentSession.summaryCard.reflection}` : null,
+            recentSession.summaryCard?.nextTopic ? `next topic: ${recentSession.summaryCard.nextTopic}` : null,
+          ].filter(Boolean).join('; ');
+
+          return `${index + 1}. ${new Date(recentSession.startedAt).toISOString()}: ${details || 'No summary captured.'}`;
+        })
+      ].join('\n')
+    : '## Recent Session Continuity\nNo previous completed sessions found.';
+
   const clinicalContextBlock = clinicalContext.length
     ? `## Relevant Clinical reference Context:\n${clinicalContext.map((chunk, index) => `${index + 1}. ${chunk}`).join('\n')}`
     : '## Relevant Clinical reference Context:\nnone retrieved.';
@@ -132,6 +156,8 @@ export async function buildTherapyContext(
       : "This is the beginning of the session. No summary yet.",
     "",
     longTermMemoryBlock,
+    "",
+    recentSessionBlock,
     "",
     clinicalContextBlock,
     "",

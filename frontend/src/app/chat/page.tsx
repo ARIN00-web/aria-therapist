@@ -7,11 +7,11 @@ import { sessionsApi, type Session, type Message } from '@/lib/api';
 import { streamMessage } from '@/lib/stream';
 import { Button, MoodSlider } from '@/components/ui';
 
-type Phase = 'mood-in' | 'chat' | 'mood-out' | 'summary';
+type Phase = 'loading' | 'mood-in' | 'chat' | 'mood-out' | 'summary';
 
 export default function ChatPage() {
   const router = useRouter();
-  const [phase, setPhase] = useState<Phase>('mood-in');
+  const [phase, setPhase] = useState<Phase>('loading');
   const [moodBefore, setMoodBefore] = useState(5);
   const [moodAfter, setMoodAfter] = useState(5);
   const [session, setSession] = useState<Session | null>(null);
@@ -29,13 +29,46 @@ export default function ChatPage() {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, streamingText]);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadActiveSession() {
+      setLoading(true);
+      try {
+        const { session: activeSession } = await sessionsApi.active();
+        if (cancelled) return;
+
+        if (activeSession?.status === 'active') {
+          setSession(activeSession);
+          setMessages(activeSession.messages || []);
+          if (activeSession.moodBefore) setMoodBefore(activeSession.moodBefore);
+          setPhase('chat');
+          setTimeout(() => inputRef.current?.focus(), 100);
+        } else {
+          setPhase('mood-in');
+        }
+      } catch {
+        if (!cancelled) setPhase('mood-in');
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+
+    loadActiveSession();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   async function startSession() {
     setLoading(true);
     setError('');
     try {
       const { session: s } = await sessionsApi.create(moodBefore);
       setSession(s);
-      setMessages([]);
+      setMessages(s.messages || []);
+      if (s.moodBefore) setMoodBefore(s.moodBefore);
       setPhase('chat');
       setTimeout(() => inputRef.current?.focus(), 100);
     } catch (err: unknown) {
@@ -65,6 +98,10 @@ export default function ChatPage() {
       },
       onCrisis: (data) => {
         setCrisis(data);
+        setMessages((prev) => [
+          ...prev,
+          { role: 'assistant', content: data.content, ts: new Date().toISOString() },
+        ]);
         setStreamingText('');
         setStreaming(false);
       },
@@ -109,6 +146,16 @@ export default function ChatPage() {
   return (
     <AppShell>
       <div style={styles.page}>
+        {phase === 'loading' && (
+          <div style={styles.centeredCard} className="glass animate-fade-in">
+            <div style={styles.cardHeader}>
+              <span style={styles.cardIcon}>✦</span>
+              <h1 style={styles.cardTitle}>Opening your session...</h1>
+              <p style={styles.cardSub}>Restoring your latest conversation with Aria.</p>
+            </div>
+          </div>
+        )}
+
         {phase === 'mood-in' && (
           <div style={styles.centeredCard} className="glass animate-fade-in">
             <div style={styles.cardHeader}>

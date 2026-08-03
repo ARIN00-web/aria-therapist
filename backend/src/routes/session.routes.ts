@@ -19,7 +19,7 @@ router.use(rateLimitByUser);
 
 router.get('/', asyncHandler(async (req, res) => {
   const userId = (req as AuthenticatedRequest).userId;
-  const sessions = await SessionModel.find({ userId: new Types.ObjectId(userId), endedAt: { $exists: true } })
+  const sessions = await SessionModel.find({ userId: new Types.ObjectId(userId) })
     .select('startedAt endedAt moodBefore moodAfter status summaryCard')
     .sort({ startedAt: -1 })
     .limit(30);
@@ -27,11 +27,31 @@ router.get('/', asyncHandler(async (req, res) => {
   res.json({ sessions });
 }));
 
+router.get('/active', asyncHandler(async (req, res) => {
+  const userId = (req as AuthenticatedRequest).userId;
+  const session = await SessionModel.findOne({
+    userId: new Types.ObjectId(userId),
+    status: 'active'
+  }).sort({ startedAt: -1 });
+
+  res.json({ session });
+}));
+
 router.post('/', asyncHandler(async (req, res) => {
   const userId = (req as AuthenticatedRequest).userId;
   const moodBefore = Number(req.body.moodBefore);
   if (!Number.isInteger(moodBefore) || moodBefore < 1 || moodBefore > 10) {
     throw new ApiError(400, 'Mood check-in must be a number from 1 to 10');
+  }
+
+  const existingActiveSession = await SessionModel.findOne({
+    userId: new Types.ObjectId(userId),
+    status: 'active'
+  }).sort({ startedAt: -1 });
+
+  if (existingActiveSession) {
+    res.json({ session: existingActiveSession });
+    return;
   }
 
   const session = await SessionModel.create({
@@ -88,7 +108,7 @@ router.post('/:sessionId/messages', asyncHandler(async (req, res) => {
   try {
     await streamGeminiResponse({
       system: context.systemPrompt,
-      messages: [...context.messages, { role: 'user', content: message }],
+      messages: context.messages,
       onText: (chunk) => {
         assistantText += chunk;
         writeEvent(res, 'token', { content: chunk });

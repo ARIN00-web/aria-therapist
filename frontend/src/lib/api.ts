@@ -129,6 +129,8 @@ export const authApi = {
 export const sessionsApi = {
   list: () => apiFetch<{ sessions: Session[] }>('/api/sessions'),
 
+  active: () => apiFetch<{ session: Session | null }>('/api/sessions/active'),
+
   create: (moodBefore: number) =>
     apiFetch<{ session: Session }>('/api/sessions', {
       method: 'POST',

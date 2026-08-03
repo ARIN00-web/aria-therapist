@@ -58,7 +58,9 @@ app.get('/api/auth/get-session', (req, res) => {
 
 app.all('/api/auth/*path', (req, res) => {
   if (!app.locals.dbReady) {
-    res.status(200).json({ data: null });
+    res.status(503).json({
+      error: 'Database unavailable. Start MongoDB before signing in.'
+    });
     return;
   }
 

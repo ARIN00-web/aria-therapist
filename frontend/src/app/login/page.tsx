@@ -20,6 +20,13 @@ export default function LoginPage() {
     }
   }, [authLoading, user, router]);
 
+  useEffect(() => {
+    const oauthError = new URLSearchParams(window.location.search).get('error');
+    if (!oauthError) return;
+
+    setError(formatOauthError(oauthError));
+  }, []);
+
   async function handleGoogle() {
     setError('');
     setLoading(true);
@@ -36,11 +43,17 @@ export default function LoginPage() {
       });
 
       const data = await res.json().catch(() => ({}));
-      if (!res.ok || typeof data.url !== 'string') {
+      const signInUrl = typeof data.url === 'string'
+        ? data.url
+        : typeof data.data?.url === 'string'
+          ? data.data.url
+          : null;
+
+      if (!res.ok || !signInUrl) {
         throw new Error(data.message || data.error || 'Could not start Google sign-in');
       }
 
-      window.location.href = data.url;
+      window.location.href = signInUrl;
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Could not start Google sign-in';
       setError(msg);
@@ -58,7 +71,7 @@ export default function LoginPage() {
         <h1 style={styles.heading}>Welcome to Aria</h1>
         <p style={styles.sub}>Your calm, private space to talk things through.</p>
 
-        {error && <p style={styles.error}>Sign-in didn&apos;t work. Please try again.</p>}
+        {error && <p style={styles.error}>{error}</p>}
 
         <Button
           type="button"
@@ -88,6 +101,18 @@ function GoogleIcon() {
       <path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.84-2.2c-.79.53-1.84.9-3.12.9-2.38 0-4.4-1.57-5.12-3.74L.96 13.04C2.44 15.98 5.48 18 9 18z" />
     </svg>
   );
+}
+
+function formatOauthError(error: string) {
+  if (error === 'account_not_linked') {
+    return 'This Google account matches an existing Aria account. Please try signing in again to link it.';
+  }
+
+  if (error === 'oauth') {
+    return 'Google sign-in did not complete. Please try again.';
+  }
+
+  return `Google sign-in failed: ${error.replaceAll('_', ' ')}`;
 }
 
 const styles: Record<string, React.CSSProperties> = {

@@ -72,6 +72,11 @@
     },
     account: {
       modelName: "accounts",
+      accountLinking: {
+        enabled: true,
+        trustedProviders: ["google"],
+        requireLocalEmailVerified: false,
+      },
     },
     verification: {
       modelName: "verifications",
