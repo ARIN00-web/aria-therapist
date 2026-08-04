@@ -5,12 +5,13 @@ let extractorPromise: any = null;
 // Constructing the native import keeps it intact at runtime.
 const importEsm = new Function('modulePath', 'return import(modulePath)') as (
   modulePath: string
-) => Promise<typeof import('@xenova/transformers')>;
+) => Promise<any>;
 
 async function getExtractor() {
   if (!extractorPromise) {
     // pipeline returns a Promise that resolves to the feature-extraction function
-    extractorPromise = importEsm('@xenova/transformers')
+    const pkgName = ['@xenova', 'transformers'].join('/');
+    extractorPromise = importEsm(pkgName)
       .then(async ({ pipeline, env }) => {
         // Configure cache directory for write access in serverless environments
         env.cacheDir = '/tmp/transformers-cache';
