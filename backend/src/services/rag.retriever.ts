@@ -1,4 +1,5 @@
 import { getConfig } from '../config/env';
+import { getGeminiEmbedding } from './gemini.embedding';
 
 const QDRANT_RETRY_DELAY_MS = 30_000;
 let qdrantUnavailableUntil = 0;
@@ -77,12 +78,9 @@ function networkErrorCode(error: unknown): string {
 
 async function embedText(message: string): Promise<number[]> {
   try {
-    // Keep the optional local embedding runtime out of cold starts when RAG is
-    // disabled (the default production setup).
-    const { getLocalEmbedding } = await import('./local.embedding');
-    return await getLocalEmbedding(message);
+    return await getGeminiEmbedding(message);
   } catch (error) {
-    console.error('[RAG Retriever] Local embedding generation failed:', error);
+    console.error('[RAG Retriever] Embedding generation failed:', error);
     return [];
   }
 }
