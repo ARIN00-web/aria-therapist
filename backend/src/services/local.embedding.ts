@@ -1,11 +1,6 @@
 let extractorPromise: any = null;
 
-// @xenova/transformers is ESM-only. TypeScript compiles normal dynamic imports
-// to require() in this CommonJS project, which fails in Vercel's Node runtime.
-// Constructing the native import keeps it intact at runtime.
-const importEsm = new Function('modulePath', 'return import(modulePath)') as (
-  modulePath: string
-) => Promise<any>;
+import { importEsm } from '../utils/esm';
 
 async function getExtractor() {
   if (!extractorPromise) {

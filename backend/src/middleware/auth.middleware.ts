@@ -1,9 +1,18 @@
 import type { NextFunction, Request, Response } from 'express';
 import { ApiError } from '../utils/errors';
 import { auth } from '../config/auth';
-import { fromNodeHeaders } from 'better-auth/node';
+import { importEsm } from '../utils/esm';
 import { verifyToken } from '../utils/tokens';
 import { UserModel } from '../models/User.model';
+
+let fromNodeHeadersPromise: Promise<any> | null = null;
+async function getFromNodeHeaders() {
+  if (!fromNodeHeadersPromise) {
+    const pkg = ['better-auth', 'node'].join('/');
+    fromNodeHeadersPromise = importEsm(pkg).then(({ fromNodeHeaders }) => fromNodeHeaders);
+  }
+  return fromNodeHeadersPromise;
+}
 
 export interface AuthenticatedRequest extends Request {
   userId: string;
@@ -29,8 +38,9 @@ export async function requireAuth(req: Request, _res: Response, next: NextFuncti
     }
 
     // 2. Fall back to better-auth session (OAuth / cookie-based)
+    const fromNodeHeadersFn = await getFromNodeHeaders();
     const session = await auth.api.getSession({
-      headers: fromNodeHeaders(req.headers)
+      headers: fromNodeHeadersFn(req.headers)
     });
 
     if (!session?.user) {

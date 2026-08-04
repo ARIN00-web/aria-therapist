@@ -1,9 +1,9 @@
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
-import { toNodeHandler } from 'better-auth/node';
 import { getConfig } from './config/env';
 import { rateLimit } from './middleware/rateLimit.middleware';
+import { importEsm } from './utils/esm';
 import authRoutes from './routes/auth.routes';
 import memoryRoutes from './routes/memory.routes';
 import sessionRoutes from './routes/session.routes';
@@ -14,7 +14,15 @@ import { auth } from './config/auth';
 
 const app = express();
 const config = getConfig();
-const authHandler = toNodeHandler(auth);
+
+let authHandlerPromise: Promise<any> | null = null;
+async function getAuthHandler() {
+  if (!authHandlerPromise) {
+    const pkg = ['better-auth', 'node'].join('/');
+    authHandlerPromise = importEsm(pkg).then(({ toNodeHandler }) => toNodeHandler(auth));
+  }
+  return authHandlerPromise;
+}
 
 app.locals.dbReady = false;
 
@@ -44,16 +52,21 @@ app.use((req, _res, next) => {
   console.log(`[request] method=${req.method} url=${req.url}`);
   next();
 });
-app.get('/api/auth/get-session', (req, res) => {
+app.get('/api/auth/get-session', async (req, res, next) => {
   if (!app.locals.dbReady) {
     res.status(200).json({ data: null });
     return;
   }
 
-  authHandler(req, res);
+  try {
+    const handler = await getAuthHandler();
+    handler(req, res);
+  } catch (error) {
+    next(error);
+  }
 });
 
-app.all('/api/auth/*path', (req, res) => {
+app.all('/api/auth/*path', async (req, res, next) => {
   if (!app.locals.dbReady) {
     res.status(503).json({
       error: 'Database unavailable. Start MongoDB before signing in.'
@@ -61,7 +74,12 @@ app.all('/api/auth/*path', (req, res) => {
     return;
   }
 
-  authHandler(req, res);
+  try {
+    const handler = await getAuthHandler();
+    handler(req, res);
+  } catch (error) {
+    next(error);
+  }
 });
 app.use(express.json({ limit: '64kb' }));
 app.use(rateLimit);
