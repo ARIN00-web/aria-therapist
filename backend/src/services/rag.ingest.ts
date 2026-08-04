@@ -4,7 +4,6 @@ import path from 'path';
 import crypto from 'crypto';
 import pdf = require('pdf-parse');
 import { getConfig } from '../config/env';
-import { getGeminiEmbedding } from './gemini.embedding';
 
 interface DocumentChunk {
   id: string;
@@ -12,7 +11,6 @@ interface DocumentChunk {
   source: string;
   modality: string;
 }
-
 
 function ensureDirExists(dirPath: string) {
   if (!fs.existsSync(dirPath)) {
@@ -43,14 +41,14 @@ function chunkText(text: string, sourceName: string, modality: string, chunkSize
   return chunks;
 }
 
-
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-async function getGeminiEmbeddingWithRetry(text: string, retries = 6, baseDelay = 2000): Promise<number[]> {
+async function getLocalEmbeddingWithRetry(text: string, retries = 6, baseDelay = 2000): Promise<number[]> {
   let delay = baseDelay;
   for (let attempt = 1; attempt <= retries; attempt++) {
     try {
-      return await getGeminiEmbedding(text);
+      const { getLocalEmbedding } = await import('./local.embedding');
+      return await getLocalEmbedding(text);
     } catch (error: any) {
       const errorStr = String(error?.message || error || '');
       const isRateLimit = 
@@ -81,10 +79,10 @@ export async function runIngestion() {
     process.exit(1);
   }
 
-  // Auto-create the Qdrant collection with the dimension returned by Gemini.
-  const probeVector = await getGeminiEmbeddingWithRetry('Embedding dimension probe');
+  // Auto-create the Qdrant collection with the dimension returned by the local model.
+  const probeVector = await getLocalEmbeddingWithRetry('Embedding dimension probe');
   const vectorSize = probeVector.length;
-  if (!vectorSize) throw new Error('Gemini did not return an embedding vector');
+  if (!vectorSize) throw new Error('Could not get embedding vector');
 
   try {
     const checkUrl = `${config.qdrantUrl.replace(/\/$/, '')}/collections/${config.qdrantCollection}`;
@@ -109,7 +107,7 @@ export async function runIngestion() {
       }
 
       if (currentSize !== vectorSize) {
-        console.log(`[RAG Ingestion] Existing collection '${config.qdrantCollection}' has vector size ${currentSize} (expected ${vectorSize} for Gemini embeddings). Recreating...`);
+        console.log(`[RAG Ingestion] Existing collection '${config.qdrantCollection}' has vector size ${currentSize} (expected ${vectorSize} for local embeddings). Recreating...`);
         const deleteRes = await fetch(checkUrl, {
           method: 'DELETE',
           headers: config.qdrantApiKey ? { 'api-key': config.qdrantApiKey } : {}
@@ -123,7 +121,7 @@ export async function runIngestion() {
     }
 
     if (!checkRes.ok) {
-        console.log(`[RAG Ingestion] Creating collection '${config.qdrantCollection}' with ${vectorSize} dimensions (Gemini)...`);
+        console.log(`[RAG Ingestion] Creating collection '${config.qdrantCollection}' with ${vectorSize} dimensions (Local)...`);
       const createRes = await fetch(checkUrl, {
         method: 'PUT',
         headers: {
@@ -181,7 +179,6 @@ export async function runIngestion() {
       content = fs.readFileSync(filePath, 'utf-8');
     }
 
-    
     let modality = 'CBT';
     const lowerName = file.toLowerCase();
     if (lowerName.includes('dbt')) modality = 'DBT';
@@ -250,9 +247,9 @@ export async function runIngestion() {
 
       try {
         const points = await Promise.all(batch.map(async (chunk, idx) => {
-          const vector = await getGeminiEmbeddingWithRetry(chunk.text);
+          const vector = await getLocalEmbeddingWithRetry(chunk.text);
           if (i === 0 && idx === 0) {
-            console.log(`[RAG Ingestion] Generated Gemini vector length: ${vector.length}`);
+            console.log(`[RAG Ingestion] Generated local vector length: ${vector.length}`);
           }
           return {
             id: chunk.id,
