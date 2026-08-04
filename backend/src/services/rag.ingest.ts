@@ -123,7 +123,7 @@ export async function runIngestion() {
     }
 
     if (!checkRes.ok) {
-      console.log(`[RAG Ingestion] Creating collection '${config.qdrantCollection}' with ${vectorSize} dimensions (Gemini)...`);
+        console.log(`[RAG Ingestion] Creating collection '${config.qdrantCollection}' with ${vectorSize} dimensions (Gemini)...`);
       const createRes = await fetch(checkUrl, {
         method: 'PUT',
         headers: {

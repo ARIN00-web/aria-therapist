@@ -42,8 +42,9 @@ Frontend (`frontend/.env.local`):
 
 - LLM providers are tried in a fallback chain (OpenRouter → DeepSeek → Gemini); provide
   any subset. `OPENROUTER_MODEL` selects the OpenRouter model.
+- Embeddings for RAG run **locally** via `@xenova/transformers` (all-MiniLM-L6-v2) — no
+  external embedding API key is required.
 - `QDRANT_URL`, `QDRANT_API_KEY`, `QDRANT_COLLECTION`: enable therapy knowledge retrieval.
-  Retrieval uses Gemini embeddings, so `GEMINI_API_KEY` is also required when Qdrant is enabled.
   When unset, RAG retrieval is disabled and chat proceeds without knowledge context.
 - `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`: enable distributed rate limiting.
   When unset, an in-memory rate limiter is used.

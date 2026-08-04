@@ -21,6 +21,12 @@
     secret: process.env.BETTER_AUTH_SECRET || process.env.AUTH_SECRET,
     baseURL: process.env.BETTER_AUTH_URL || "http://127.0.0.1:5001",
     trustedOrigins: config.frontendOrigins,
+    advanced: {
+      defaultCookieAttributes: config.nodeEnv === 'production' ? {
+        sameSite: 'none',
+        secure: true,
+      } : undefined
+    },
     socialProviders: {
       google: {
         clientId: process.env.GOOGLE_CLIENT_ID || "",
