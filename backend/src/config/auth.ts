@@ -1,19 +1,29 @@
-  import { betterAuth } from "better-auth";
-  import { mongodbAdapter } from "better-auth/adapters/mongodb";
-  import { MongoClient } from "mongodb";
-  import mongoose from "mongoose";
-  import { getConfig, normalizeMongoUri } from "./env";
+import { MongoClient } from 'mongodb';
+import { getConfig, normalizeMongoUri } from './env';
+import { importEsm } from '../utils/esm';
 
-  const config = getConfig();
-  const mongoUri = normalizeMongoUri(process.env.MONGODB_URI || "");
-  if (!mongoUri) {
-    throw new Error("MONGODB_URI environment variable is required");
-  }
+// `better-auth` is ESM-only. This file is also loaded by Vercel's CommonJS
+// function runtime, so imports must stay dynamic; a static import is rewritten
+// to require() and crashes before the API can start.
+let authPromise: Promise<any> | null = null;
 
-  const client = new MongoClient(mongoUri);
-  const db = client.db();
+export function getAuth(): Promise<any> {
+  if (authPromise) return authPromise;
 
-  export const auth = betterAuth({
+  authPromise = Promise.all([
+    importEsm(['better-auth'].join('')),
+    importEsm(['better-auth', 'adapters/mongodb'].join('/'))
+  ]).then(([{ betterAuth }, { mongodbAdapter }]) => {
+    const config = getConfig();
+    const mongoUri = normalizeMongoUri(process.env.MONGODB_URI || '');
+    if (!mongoUri) {
+      throw new Error('MONGODB_URI environment variable is required');
+    }
+
+    const client = new MongoClient(mongoUri);
+    const db = client.db();
+
+    return betterAuth({
     database: mongodbAdapter(db, {
       client,
       transaction: false,
@@ -87,4 +97,8 @@
     verification: {
       modelName: "verifications",
     },
+    });
   });
+
+  return authPromise;
+}

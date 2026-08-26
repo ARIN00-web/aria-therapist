@@ -145,6 +145,25 @@ export async function runIngestion() {
     process.exit(1);
   }
 
+  // Modality-filtered retrieval needs a keyword payload index. This is safe to
+  // call for an existing collection and lets Qdrant Cloud serve filtered
+  // queries instead of returning HTTP 400.
+  try {
+    const indexRes = await fetch(`${config.qdrantUrl.replace(/\/$/, '')}/collections/${config.qdrantCollection}/index`, {
+      method: 'PUT',
+      headers: {
+        'content-type': 'application/json',
+        ...(config.qdrantApiKey ? { 'api-key': config.qdrantApiKey } : {})
+      },
+      body: JSON.stringify({ field_name: 'modality', field_schema: 'keyword' })
+    });
+    if (!indexRes.ok) {
+      console.warn(`[RAG Ingestion] Could not ensure modality index (status ${indexRes.status}). Retrieval will fall back to unfiltered results.`);
+    }
+  } catch (error) {
+    console.warn('[RAG Ingestion] Could not ensure modality index. Retrieval will fall back to unfiltered results.');
+  }
+
   const files = fs.readdirSync(dataDir).filter((file) => {
     if (file.endsWith('.pdf')) {
       const txtFile = file.replace(/\.pdf$/, '.txt');

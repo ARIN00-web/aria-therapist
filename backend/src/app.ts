@@ -9,7 +9,7 @@ import sessionRoutes from './routes/session.routes';
 import userRoutes from './routes/user.routes';
 import wellnessRoutes from './routes/wellness.routes';
 import { errorHandler } from './utils/errors';
-import { auth } from './config/auth';
+import { getAuth } from './config/auth';
 import { serveBetterAuth } from './utils/better-auth-node';
 
 const app = express();
@@ -50,6 +50,7 @@ app.get('/api/auth/get-session', async (req, res, next) => {
   }
 
   try {
+    const auth = await getAuth();
     await serveBetterAuth(req, res, auth.handler);
   } catch (error) {
     next(error);
@@ -65,6 +66,7 @@ app.all('/api/auth/*path', async (req, res, next) => {
   }
 
   try {
+    const auth = await getAuth();
     await serveBetterAuth(req, res, auth.handler);
   } catch (error) {
     next(error);

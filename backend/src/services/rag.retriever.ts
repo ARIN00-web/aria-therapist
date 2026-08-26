@@ -28,19 +28,33 @@ export async function retrieveClinicalContext(message: string, modality?: string
   } : undefined;
 
   try {
-    const response = await fetch(`${config.qdrantUrl.replace(/\/$/, '')}/collections/${config.qdrantCollection}/points/search`, {
-      method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-        ...(config.qdrantApiKey ? { 'api-key': config.qdrantApiKey } : {})
-      },
-      body: JSON.stringify({
-        vector: embedding,
-        limit: 3,
-        filter,
-        with_payload: true
-      })
-    });
+    // Qdrant Cloud uses the Query API. The older `/points/search` endpoint is
+    // no longer accepted by current clusters and returns HTTP 400.
+    const queryPoints = (activeFilter?: typeof filter) => fetch(
+      `${config.qdrantUrl!.replace(/\/$/, '')}/collections/${config.qdrantCollection}/points/query`,
+      {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          ...(config.qdrantApiKey ? { 'api-key': config.qdrantApiKey } : {})
+        },
+        body: JSON.stringify({
+          query: embedding,
+          limit: 3,
+          filter: activeFilter,
+          with_payload: true
+        })
+      }
+    );
+
+    let response = await queryPoints(filter);
+    // Collections created before the modality index existed reject filtered
+    // queries. Return useful context while the index is being created instead
+    // of silently disabling RAG for the whole chat.
+    if (response.status === 400 && filter) {
+      console.warn('[rag:qdrant_filter_unavailable] Retrying without modality filter');
+      response = await queryPoints(undefined);
+    }
 
     if (!response.ok) {
       if (response.status >= 500) qdrantUnavailableUntil = Date.now() + QDRANT_RETRY_DELAY_MS;
@@ -49,10 +63,12 @@ export async function retrieveClinicalContext(message: string, modality?: string
     }
 
     const data = await response.json() as {
-      result?: Array<{ score: number; payload?: Record<string, unknown> }>;
+      result?: {
+        points?: Array<{ score: number; payload?: Record<string, unknown> }>;
+      };
     };
 
-    return (data.result || []).map((item) => ({
+    return (data.result?.points || []).map((item) => ({
       text: String(item.payload?.text || item.payload?.content || ''),
       source: item.payload?.source ? String(item.payload.source) : undefined,
       modality: item.payload?.modality ? String(item.payload.modality) : undefined,

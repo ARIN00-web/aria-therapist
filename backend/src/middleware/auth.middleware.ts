@@ -1,6 +1,6 @@
 import type { NextFunction, Request, Response } from 'express';
 import { ApiError } from '../utils/errors';
-import { auth } from '../config/auth';
+import { getAuth } from '../config/auth';
 import { verifyToken } from '../utils/tokens';
 import { UserModel } from '../models/User.model';
 import { headersFromNode } from '../utils/better-auth-node';
@@ -29,6 +29,7 @@ export async function requireAuth(req: Request, _res: Response, next: NextFuncti
     }
 
     // 2. Fall back to better-auth session (OAuth / cookie-based)
+    const auth = await getAuth();
     const session = await auth.api.getSession({
       headers: headersFromNode(req.headers)
     });
