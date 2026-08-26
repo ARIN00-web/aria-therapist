@@ -3,7 +3,6 @@ import cors from 'cors';
 import helmet from 'helmet';
 import { getConfig } from './config/env';
 import { rateLimit } from './middleware/rateLimit.middleware';
-import { importEsm } from './utils/esm';
 import authRoutes from './routes/auth.routes';
 import memoryRoutes from './routes/memory.routes';
 import sessionRoutes from './routes/session.routes';
@@ -11,18 +10,10 @@ import userRoutes from './routes/user.routes';
 import wellnessRoutes from './routes/wellness.routes';
 import { errorHandler } from './utils/errors';
 import { auth } from './config/auth';
+import { serveBetterAuth } from './utils/better-auth-node';
 
 const app = express();
 const config = getConfig();
-
-let authHandlerPromise: Promise<any> | null = null;
-async function getAuthHandler() {
-  if (!authHandlerPromise) {
-    const pkg = ['better-auth', 'node'].join('/');
-    authHandlerPromise = importEsm(pkg).then(({ toNodeHandler }) => toNodeHandler(auth));
-  }
-  return authHandlerPromise;
-}
 
 app.locals.dbReady = false;
 
@@ -59,8 +50,7 @@ app.get('/api/auth/get-session', async (req, res, next) => {
   }
 
   try {
-    const handler = await getAuthHandler();
-    handler(req, res);
+    await serveBetterAuth(req, res, auth.handler);
   } catch (error) {
     next(error);
   }
@@ -75,8 +65,7 @@ app.all('/api/auth/*path', async (req, res, next) => {
   }
 
   try {
-    const handler = await getAuthHandler();
-    handler(req, res);
+    await serveBetterAuth(req, res, auth.handler);
   } catch (error) {
     next(error);
   }
