@@ -8,11 +8,9 @@
     }
   ],
   "functions": {
-  "api/index.js": {
-    "maxDuration": 60,
-    "includeFiles": [
-      "node_modules/better-auth/**"
-    ]
+    "api/index.js": {
+      "maxDuration": 60,
+      "includeFiles": "node_modules/better-auth/**"
+    }
   }
-}
 }
