@@ -13,90 +13,127 @@ export function getAuth(): Promise<any> {
   authPromise = Promise.all([
     importEsm(['better-auth'].join('')),
     importEsm(['better-auth', 'adapters/mongodb'].join('/'))
-  ]).then(([{ betterAuth }, { mongodbAdapter }]) => {
+  ]).then(async ([{ betterAuth }, { mongodbAdapter }]) => {
     const config = getConfig();
-    const mongoUri = normalizeMongoUri(process.env.MONGODB_URI || '');
+
+    const mongoUri = normalizeMongoUri(
+      process.env.MONGODB_URI || ''
+    );
+
     if (!mongoUri) {
       throw new Error('MONGODB_URI environment variable is required');
     }
 
-    const client = new MongoClient(mongoUri);
+    // Better Auth uses its own MongoClient, separate from Mongoose.
+    // Explicitly connect it so failures happen quickly and visibly on Vercel.
+    const client = new MongoClient(mongoUri, {
+      serverSelectionTimeoutMS: 10000,
+    });
+
+    await client.connect();
+
+    console.log('[auth:mongodb] connected');
+
     const db = client.db();
 
     return betterAuth({
-    database: mongodbAdapter(db, {
-      client,
-      transaction: false,
-    }),
-    secret: process.env.BETTER_AUTH_SECRET || process.env.AUTH_SECRET,
-    baseURL: process.env.BETTER_AUTH_URL || "http://127.0.0.1:5001",
-    trustedOrigins: config.frontendOrigins,
-    advanced: {
-      defaultCookieAttributes: config.nodeEnv === 'production' ? {
-        sameSite: 'none',
-        secure: true,
-      } : undefined
-    },
-    socialProviders: {
-      google: {
-        clientId: process.env.GOOGLE_CLIENT_ID || "",
-        clientSecret: process.env.GOOGLE_CLIENT_SECRET || "",
+      database: mongodbAdapter(db, {
+        client,
+        transaction: false,
+      }),
+
+      secret:
+        process.env.BETTER_AUTH_SECRET ||
+        process.env.AUTH_SECRET,
+
+      baseURL:
+        process.env.BETTER_AUTH_URL ||
+        'http://127.0.0.1:5001',
+
+      trustedOrigins: config.frontendOrigins,
+
+      advanced: {
+        defaultCookieAttributes:
+          config.nodeEnv === 'production'
+            ? {
+                sameSite: 'none',
+                secure: true,
+              }
+            : undefined,
       },
-    },
-    user: {
-      modelName: "users",
-      additionalFields: {
-        preferredModality: {
-          type: "string",
-          required: false,
-          defaultValue: "Auto",
-          input: true,
-        },
-        timezone: {
-          type: "string",
-          required: false,
-          defaultValue: "UTC",
-          input: true,
-        },
-        onboardingAnswers: {
-          type: "json",
-          required: false,
-          defaultValue: {},
-          input: true,
-        },
-        consentAcceptedAt: {
-          type: "date",
-          required: false,
-        },
-        tokenVersion: {
-          type: "number",
-          required: false,
-          defaultValue: 0,
-        },
-        lastActiveAt: {
-          type: "date",
-          required: false,
-        },
-        deletedAt: {
-          type: "date",
-          required: false,
+
+      socialProviders: {
+        google: {
+          clientId: process.env.GOOGLE_CLIENT_ID || '',
+          clientSecret: process.env.GOOGLE_CLIENT_SECRET || '',
         },
       },
-    },
-    session: {
-      modelName: "user_sessions",
-    },
-    account: {
-      modelName: "accounts",
-      accountLinking: {
-        enabled: true,
-        trustedProviders: ["google"],
-        requireLocalEmailVerified: false,
+
+      user: {
+        modelName: 'users',
+
+        additionalFields: {
+          preferredModality: {
+            type: 'string',
+            required: false,
+            defaultValue: 'Auto',
+            input: true,
+          },
+
+          timezone: {
+            type: 'string',
+            required: false,
+            defaultValue: 'UTC',
+            input: true,
+          },
+
+          onboardingAnswers: {
+            type: 'json',
+            required: false,
+            defaultValue: {},
+            input: true,
+          },
+
+          consentAcceptedAt: {
+            type: 'date',
+            required: false,
+          },
+
+          tokenVersion: {
+            type: 'number',
+            required: false,
+            defaultValue: 0,
+          },
+
+          lastActiveAt: {
+            type: 'date',
+            required: false,
+          },
+
+          deletedAt: {
+            type: 'date',
+            required: false,
+          },
+        },
       },
-    },
-    verification: {
-      modelName: "verifications",
-    },
+
+      session: {
+        modelName: 'user_sessions',
+      },
+
+      account: {
+        modelName: 'accounts',
+
+        accountLinking: {
+          enabled: true,
+          trustedProviders: ['google'],
+          requireLocalEmailVerified: false,
+        },
+      },
+
+      verification: {
+        modelName: 'verifications',
+      },
     });
   });
 
