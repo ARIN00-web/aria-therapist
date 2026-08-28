@@ -13,6 +13,8 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "@better-auth/core": "^1.6.25",
+    "@better-auth/utils": "^0.4.2",
     "@google/generative-ai": "^0.24.1",
     "@types/pdf-parse": "^1.1.5",
     "@upstash/redis": "^1.38.0",
