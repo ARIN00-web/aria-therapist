@@ -3,20 +3,40 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
+import { signIn, signUp } from '@/lib/auth-client';
 import { Button } from '@/components/ui';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001';
+function getApiBase(): string {
+  if (process.env.NEXT_PUBLIC_API_URL) {
+    return process.env.NEXT_PUBLIC_API_URL.replace(/\/$/, '');
+  }
+  if (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+    return window.location.origin;
+  }
+  return 'http://localhost:5001';
+}
+
+const API_BASE = getApiBase();
 
 export default function LoginPage() {
+  const [mode, setMode] = useState<'signin' | 'signup'>('signin');
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const { user, loading: authLoading } = useAuth();
+  const [googleLoading, setGoogleLoading] = useState(false);
+  const { user, loading: authLoading, refresh } = useAuth();
   const router = useRouter();
 
-  // If the user is already authenticated (either mode), skip the login screen.
+  // If the user is already authenticated, skip the login screen.
   useEffect(() => {
     if (!authLoading && user) {
-      router.replace('/dashboard');
+      if (!user.consentAcceptedAt) {
+        router.replace('/onboarding');
+      } else {
+        router.replace('/dashboard');
+      }
     }
   }, [authLoading, user, router]);
 
@@ -27,18 +47,72 @@ export default function LoginPage() {
     setError(formatOauthError(oauthError));
   }, []);
 
-  async function handleGoogle() {
+  async function handleEmailAuth(e: React.FormEvent) {
+    e.preventDefault();
+    if (!email || !password) {
+      setError('Please fill in all required fields.');
+      return;
+    }
+    if (mode === 'signup' && !name.trim()) {
+      setError('Please enter your name.');
+      return;
+    }
+
     setError('');
     setLoading(true);
+
+    try {
+      if (mode === 'signup') {
+        const { error: signUpError } = await signUp.email({
+          email: email.trim(),
+          password,
+          name: name.trim() || email.split('@')[0],
+        });
+
+        if (signUpError) {
+          throw new Error(signUpError.message || 'Could not create account');
+        }
+      } else {
+        const { error: signInError } = await signIn.email({
+          email: email.trim(),
+          password,
+        });
+
+        if (signInError) {
+          throw new Error(signInError.message || 'Invalid email or password');
+        }
+      }
+
+      const refreshedUser = await refresh();
+      if (refreshedUser && !refreshedUser.consentAcceptedAt) {
+        router.replace('/onboarding');
+      } else {
+        router.replace('/dashboard');
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Authentication failed';
+      if (msg.includes('Failed to fetch') || msg.includes('NetworkError') || msg.includes('Load failed')) {
+        setError('Unable to reach the backend service. Please check your connection.');
+      } else {
+        setError(msg);
+      }
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleGoogle() {
+    setError('');
+    setGoogleLoading(true);
     try {
       const res = await fetch(`${API_BASE}/api/auth/sign-in/social`, {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-        provider: 'google',
-        callbackURL: `${window.location.origin}/auth/callback`,
-        errorCallbackURL: `${window.location.origin}/login?error=oauth`,
+          provider: 'google',
+          callbackURL: `${window.location.origin}/auth/callback`,
+          errorCallbackURL: `${window.location.origin}/login?error=oauth`,
         }),
       });
 
@@ -56,8 +130,12 @@ export default function LoginPage() {
       window.location.href = signInUrl;
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Could not start Google sign-in';
-      setError(msg);
-      setLoading(false);
+      if (msg.includes('Failed to fetch') || msg.includes('NetworkError') || msg.includes('Load failed')) {
+        setError('Unable to reach the backend service. Please check your connection.');
+      } else {
+        setError(msg);
+      }
+      setGoogleLoading(false);
     }
   }
 
@@ -71,15 +149,94 @@ export default function LoginPage() {
         <h1 style={styles.heading}>Welcome to Aria</h1>
         <p style={styles.sub}>Your calm, private space to talk things through.</p>
 
+        <div style={styles.tabRow}>
+          <button
+            type="button"
+            onClick={() => { setMode('signin'); setError(''); }}
+            style={{
+              ...styles.tabBtn,
+              ...(mode === 'signin' ? styles.tabBtnActive : {}),
+            }}
+          >
+            Sign In
+          </button>
+          <button
+            type="button"
+            onClick={() => { setMode('signup'); setError(''); }}
+            style={{
+              ...styles.tabBtn,
+              ...(mode === 'signup' ? styles.tabBtnActive : {}),
+            }}
+          >
+            Create Account
+          </button>
+        </div>
+
         {error && <p style={styles.error}>{error}</p>}
+
+        <form onSubmit={handleEmailAuth} style={styles.form}>
+          {mode === 'signup' && (
+            <div style={styles.field}>
+              <label style={styles.label}>Your Name</label>
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Alex"
+                required
+                style={styles.input}
+              />
+            </div>
+          )}
+
+          <div style={styles.field}>
+            <label style={styles.label}>Email Address</label>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="alex@example.com"
+              required
+              style={styles.input}
+            />
+          </div>
+
+          <div style={styles.field}>
+            <label style={styles.label}>Password</label>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="••••••••"
+              required
+              minLength={8}
+              style={styles.input}
+            />
+          </div>
+
+          <Button
+            type="submit"
+            loading={loading}
+            style={{ width: '100%', padding: '12px', marginTop: 4 }}
+          >
+            {mode === 'signin' ? 'Sign In' : 'Create Account'}
+          </Button>
+        </form>
+
+        <div style={styles.divider}>
+          <div style={styles.dividerLine} />
+          <span style={styles.dividerText}>or</span>
+          <div style={styles.dividerLine} />
+        </div>
 
         <Button
           type="button"
           onClick={handleGoogle}
-          loading={loading}
+          loading={googleLoading}
+          variant="soft"
           style={{ width: '100%', padding: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10 }}
         >
-          {!loading && <GoogleIcon />}
+          {!googleLoading && <GoogleIcon />}
           Continue with Google
         </Button>
 
@@ -126,8 +283,8 @@ const styles: Record<string, React.CSSProperties> = {
   },
   card: {
     width: '100%',
-    maxWidth: 400,
-    padding: '40px 36px',
+    maxWidth: 420,
+    padding: '36px 32px',
     display: 'flex',
     flexDirection: 'column',
     gap: 16,
@@ -136,12 +293,80 @@ const styles: Record<string, React.CSSProperties> = {
     display: 'flex',
     alignItems: 'center',
     gap: 8,
-    marginBottom: 8,
+    marginBottom: 4,
   },
   logoIcon: { fontSize: 22, color: 'var(--accent)' },
   logoText: { fontSize: 20, fontWeight: 700, color: 'var(--text)' },
   heading: { fontSize: 24, fontWeight: 700, color: 'var(--text)' },
   sub: { fontSize: 14, color: 'var(--text-muted)', marginTop: -8 },
+  tabRow: {
+    display: 'flex',
+    borderRadius: 8,
+    background: 'var(--bg-elevated)',
+    padding: 4,
+    gap: 4,
+    border: '1px solid var(--border)',
+  },
+  tabBtn: {
+    flex: 1,
+    padding: '8px 12px',
+    border: 'none',
+    background: 'transparent',
+    color: 'var(--text-muted)',
+    fontSize: 13,
+    fontWeight: 500,
+    borderRadius: 6,
+    cursor: 'pointer',
+    transition: 'all 0.15s ease',
+  },
+  tabBtnActive: {
+    background: 'var(--accent)',
+    color: '#fff',
+    fontWeight: 600,
+  },
+  form: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 12,
+  },
+  field: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 4,
+  },
+  label: {
+    fontSize: 12,
+    fontWeight: 600,
+    color: 'var(--text-muted)',
+  },
+  input: {
+    background: 'var(--bg-elevated)',
+    border: '1px solid var(--border)',
+    borderRadius: 8,
+    padding: '10px 12px',
+    fontSize: 14,
+    color: 'var(--text)',
+    outline: 'none',
+    width: '100%',
+    boxSizing: 'border-box',
+    fontFamily: 'inherit',
+  },
+  divider: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 12,
+    margin: '4px 0',
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    background: 'var(--border)',
+  },
+  dividerText: {
+    fontSize: 12,
+    color: 'var(--text-muted)',
+    textTransform: 'uppercase',
+  },
   error: { fontSize: 13, color: 'var(--red)', margin: 0 },
   footer: { fontSize: 12, color: 'var(--text-muted)', textAlign: 'center', marginTop: 8, lineHeight: 1.5 },
 };

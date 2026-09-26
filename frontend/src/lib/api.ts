@@ -1,4 +1,14 @@
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001';
+function getApiBase(): string {
+  if (process.env.NEXT_PUBLIC_API_URL) {
+    return process.env.NEXT_PUBLIC_API_URL.replace(/\/$/, '');
+  }
+  if (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+    return window.location.origin;
+  }
+  return 'http://localhost:5001';
+}
+
+const API_BASE = getApiBase();
 
 let accessToken: string | null = null;
 
@@ -45,11 +55,22 @@ export async function apiFetch<T = unknown>(
     };
     if (token) headers['Authorization'] = `Bearer ${token}`;
 
-    return fetch(`${API_BASE}${path}`, {
-      ...options,
-      headers,
-      credentials: 'include',
-    });
+    try {
+      return await fetch(`${API_BASE}${path}`, {
+        ...options,
+        headers,
+        credentials: 'include',
+      });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.includes('Failed to fetch') || msg.includes('NetworkError') || msg.includes('Load failed')) {
+        throw new ApiError(
+          0,
+          `Unable to connect to the Aria backend (${API_BASE}). Please verify the backend is online and CORS is configured for this domain.`
+        );
+      }
+      throw new ApiError(0, msg || 'Network error');
+    }
   };
 
   let res = await doFetch(accessToken);
@@ -72,7 +93,7 @@ export async function apiFetch<T = unknown>(
     const message =
       (body as { error?: string; message?: string }).error ||
       (body as { message?: string }).message ||
-      'Request failed';
+      `Request failed with status ${res.status}`;
     throw new ApiError(res.status, message);
   }
 
@@ -85,6 +106,7 @@ export class ApiError extends Error {
     this.name = 'ApiError';
   }
 }
+
 
 // Auth
 export const authApi = {

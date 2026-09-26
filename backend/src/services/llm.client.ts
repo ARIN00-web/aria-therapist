@@ -43,7 +43,7 @@ export async function callGeminiText({
         headers: {
           'content-type': 'application/json',
           'authorization': `Bearer ${config.openrouterApiKey}`,
-          'http-referer': 'http://localhost:3000',
+          'http-referer': config.frontendOrigin || 'https://aria-therapist.vercel.app',
           'x-title': 'Aria Therapist'
         },
         body: JSON.stringify({
@@ -174,7 +174,7 @@ export async function streamGeminiResponse({
         headers: {
           'content-type': 'application/json',
           'authorization': `Bearer ${config.openrouterApiKey}`,
-          'http-referer': 'http://localhost:3000',
+          'http-referer': config.frontendOrigin || 'https://aria-therapist.vercel.app',
           'x-title': 'Aria Therapist'
         },
         body: JSON.stringify({

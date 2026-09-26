@@ -1,5 +1,11 @@
 # Deploying Aria with Vercel, MongoDB Atlas, and Qdrant Cloud
 
+This runbook deploys a working three-service application: the browser app,
+the API, and Qdrant. `Failed to fetch` in the browser almost always means the
+browser cannot reach the API at all (wrong URL, a failed API deployment, or
+CORS); it is not a Qdrant error. Follow the verification steps below in order
+so each connection is proven independently.
+
 This application is deployed as two Vercel projects from the same Git repository:
 
 - `backend/` — Express API deployed as a Vercel Function.
@@ -7,7 +13,9 @@ This application is deployed as two Vercel projects from the same Git repository
 
 The MongoDB database is hosted on MongoDB Atlas M0 (free tier). Qdrant must be
 hosted separately (Qdrant Cloud is the simplest choice): a Vercel Function is
-not a persistent server and cannot host Qdrant's database files.
+not a persistent server and cannot host Qdrant's database files. Do **not** set
+`QDRANT_URL` to `localhost`, a Docker service name, or a Qdrant dashboard URL:
+Vercel cannot reach any of those.
 
 ## 1. Create the database
 
@@ -31,13 +39,13 @@ not a persistent server and cannot host Qdrant's database files.
    | `AUTH_SECRET` | A new random secret, at least 32 characters |
    | `BETTER_AUTH_SECRET` | A new random secret, at least 32 characters |
    | `BETTER_AUTH_URL` | The backend Vercel URL, for example `https://aria-api.vercel.app` |
-   | `FRONTEND_ORIGIN` | Set this after the frontend is deployed |
+   | `FRONTEND_ORIGIN` | Set this after the frontend is deployed; use the exact origin, e.g. `https://aria-web.vercel.app` |
    | `GEMINI_API_KEY`, `DEEPSEEK_API_KEY`, or `OPENROUTER_API_KEY` | At least one provider key is required |
    | `OPENROUTER_MODEL` | Optional; defaults to the project’s configured model |
 
    Generate a secret locally with `openssl rand -base64 48`. Never commit any of these values.
 
-5. Deploy. Open `https://YOUR-BACKEND.vercel.app/health`; it should return JSON with `"status":"ok"`.
+5. Deploy. Open `https://YOUR-BACKEND.vercel.app/health`; it should return JSON with `"status":"ok"` and `"database":"connected"`.
 
 If this endpoint returns `503`, open the Vercel project **Logs** tab for that
 request. The response is now a configuration/database error rather than a
@@ -49,8 +57,8 @@ access rule that does not permit Vercel, or an invalid Atlas URI.
 1. Create a Qdrant Cloud cluster. Copy its HTTPS **cluster URL** and create an
    API key with read/write access. Do not use `localhost`, a private IP, or the
    Qdrant dashboard URL.
-2. Add these variables to the **backend Vercel project** (Production,
-   Preview, and Development if you use all three), then redeploy it:
+2. Add these variables to the **backend Vercel project** (Production, and also
+   Preview/Development if you deploy to those environments), then redeploy it:
 
    | Variable | Value |
    | --- | --- |
@@ -72,10 +80,18 @@ access rule that does not permit Vercel, or an invalid Atlas URI.
    take longer than a serverless request and the source documents are not part
    of the deployed API. Re-running it is safe: existing chunks are skipped.
 
-4. In the Qdrant Cloud dashboard, confirm that `therapy_knowledge` has points.
-   After that, start a chat in Aria. The API will retrieve the best matching
-   chunks from that collection. If Qdrant is briefly unavailable, chat remains
-   available without retrieval.
+4. Verify that the deployed API can reach Qdrant (this is more reliable than
+   only checking the Qdrant dashboard):
+
+   ```bash
+   curl -i https://YOUR-BACKEND.vercel.app/health/qdrant
+   ```
+
+   It must return `200` and JSON with `"status":"ok"`; `pointsCount` should
+   be greater than zero after ingestion. A `401`/`403` means the Qdrant API key
+   is wrong or missing; `404` usually means the collection was not ingested;
+   a `503` means the backend cannot reach the configured Qdrant URL. After
+   this succeeds, chat retrieves the best matching chunks from that collection.
 
 ## 4. Deploy the frontend
 
@@ -92,6 +108,10 @@ access rule that does not permit Vercel, or an invalid Atlas URI.
 
 `NEXT_PUBLIC_API_URL` is included in the browser bundle, so changing it requires a frontend redeploy.
 
+Do not include a path such as `/api`, a trailing route, quotes, or whitespace
+in either deployed URL. The backend accepts a trailing slash in
+`FRONTEND_ORIGIN`, but the value should still be the bare origin.
+
 ## 5. Optional Google sign-in
 
 If Google OAuth is enabled, add this authorized redirect URI in Google Cloud:
@@ -104,10 +124,40 @@ Also set `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` in the backend Vercel pro
 
 ## 6. Verify the production app
 
-1. Complete onboarding and refresh the page; the user should remain signed in.
-2. Start a session, send a message, and end it.
-3. Open Memory and confirm profile text is readable.
-4. Confirm the backend’s Vercel logs show no error responses.
+1. From a terminal, verify API and database readiness:
+
+   ```bash
+   curl -i https://YOUR-BACKEND.vercel.app/health
+   ```
+
+   Expect HTTP `200`, `status: "ok"`, and `database: "connected"`. Do not
+   test the API with `/`: it is intentionally not an application page.
+2. Verify deployed Qdrant with `curl -i https://YOUR-BACKEND.vercel.app/health/qdrant`.
+   Expect HTTP `200`, `status: "ok"`, and a non-zero `pointsCount`.
+3. Open the deployed frontend in an incognito window. Complete onboarding,
+   refresh the page, then start a session, send a message, and end it.
+4. Open Memory and confirm profile text is readable. Check the backend Vercel
+   logs for the same time window; there should be no `startup_failed`, CORS,
+   Qdrant, or LLM errors.
+
+## Fixing `Failed to fetch`
+
+Use the browser DevTools **Network** tab and this decision tree. The exact
+request URL and status are the useful evidence; the UI’s `Failed to fetch`
+message alone is too generic.
+
+| What you see | Cause | Fix |
+| --- | --- | --- |
+| Request URL starts with `http://localhost:5001` | The frontend was built without the production API URL. | Set `NEXT_PUBLIC_API_URL=https://YOUR-BACKEND.vercel.app` in the **frontend** Vercel project and redeploy the frontend. |
+| Request is blocked by CORS or has no `access-control-allow-origin` header | The backend does not allow the deployed frontend origin. | Set `FRONTEND_ORIGIN` to the exact frontend origin in the **backend** project, then redeploy the backend. For preview URLs, set `FRONTEND_ORIGINS` to a comma-separated list of the allowed preview origins. |
+| API `/health` returns `503` | The backend function cannot start or cannot connect to MongoDB. | Open the matching Vercel Function log. Check every required backend variable and the Atlas network-access rule. |
+| API `/health` works but `/health/qdrant` returns `503` | Qdrant is misconfigured or unreachable. | Use the Qdrant Cloud HTTPS cluster endpoint, set `QDRANT_API_KEY`, run `npm run ingest` locally, and redeploy the backend. |
+| API endpoints return `401` after a Google login | Cookie/domain configuration is inconsistent. | Make `BETTER_AUTH_URL` exactly the backend URL and `NEXT_PUBLIC_API_URL` the same backend URL; set the Google callback URL shown below. |
+| Chat stream returns `504` or stops after a long delay | The LLM or first local-embedding model download exceeded the Vercel function time limit. | Check function logs and provider quota. Retry once after cold start; for dependable production traffic, move embedding generation to a dedicated worker/service or prepackage the model. |
+
+After changing any backend variable, redeploy the backend. After changing
+`NEXT_PUBLIC_API_URL`, redeploy the frontend; Next.js embeds that value at
+build time.
 
 ## Deployment checklist for a `GET /` function crash
 

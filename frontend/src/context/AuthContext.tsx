@@ -22,7 +22,17 @@ interface AuthState {
 
 const AuthContext = createContext<AuthState | null>(null);
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001';
+function getApiBase(): string {
+  if (process.env.NEXT_PUBLIC_API_URL) {
+    return process.env.NEXT_PUBLIC_API_URL.replace(/\/$/, '');
+  }
+  if (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+    return window.location.origin;
+  }
+  return 'http://localhost:5001';
+}
+
+const API_BASE = getApiBase();
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -41,7 +51,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Resolve the current user by trying both auth modes:
   //  1. Custom-JWT refresh cookie (existing email/JWT users) → access token + /me
-  //  2. better-auth cookie session (Google OAuth users) → /me via cookie
+  //  2. better-auth cookie session (Google OAuth or email/password users) → /me via cookie
   // Whichever yields a user wins. /me works for cookie-only users because the
   // backend requireAuth middleware falls back to the better-auth session.
   const resolveUser = useCallback(async (): Promise<User | null> => {
@@ -60,7 +70,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       }
     } catch {
-      /* fall through to OAuth */
+      /* fall through to OAuth/Better Auth session */
     }
 
     // Mode 2: better-auth cookie session.
@@ -70,6 +80,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setAccessToken(null); // cookie auth — no Bearer token
         const u = await loadUser();
         if (u) return u;
+
+        const baUser = session.data.user as any;
+        const mappedUser: User = {
+          _id: baUser.id,
+          name: baUser.name || '',
+          email: baUser.email || '',
+          preferredModality: baUser.preferredModality || 'Auto',
+          timezone: baUser.timezone || 'UTC',
+          createdAt: baUser.createdAt ? new Date(baUser.createdAt).toISOString() : new Date().toISOString(),
+          consentAcceptedAt: baUser.consentAcceptedAt || null,
+          onboardingAnswers: baUser.onboardingAnswers || {}
+        };
+        setUser(mappedUser);
+        return mappedUser;
       }
     } catch {
       /* no session */

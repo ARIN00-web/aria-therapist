@@ -36,28 +36,41 @@ export function getAuth(): Promise<any> {
 
     const db = client.db();
 
+    const isProduction = config.nodeEnv === 'production' || Boolean(process.env.VERCEL);
+    const configuredBetterAuthUrl = process.env.BETTER_AUTH_URL?.trim();
+
+    if (isProduction && (!configuredBetterAuthUrl || configuredBetterAuthUrl.includes('localhost') || configuredBetterAuthUrl.includes('127.0.0.1'))) {
+      throw new Error('BETTER_AUTH_URL must be configured with the production backend URL in production');
+    }
+
+    const baseURL = configuredBetterAuthUrl || 'http://localhost:5001';
+
     return betterAuth({
       database: mongodbAdapter(db, {
         client,
         transaction: false,
       }),
 
+      emailAndPassword: {
+        enabled: true,
+        requireEmailVerification: false,
+      },
+
       secret:
         process.env.BETTER_AUTH_SECRET ||
         process.env.AUTH_SECRET,
 
-      baseURL:
-        process.env.BETTER_AUTH_URL ||
-        'http://127.0.0.1:5001',
+      baseURL,
 
       trustedOrigins: config.frontendOrigins,
 
       advanced: {
         defaultCookieAttributes:
-          config.nodeEnv === 'production'
+          isProduction
             ? {
                 sameSite: 'none',
                 secure: true,
+                partitioned: true,
               }
             : undefined,
       },
@@ -66,6 +79,7 @@ export function getAuth(): Promise<any> {
         google: {
           clientId: process.env.GOOGLE_CLIENT_ID || '',
           clientSecret: process.env.GOOGLE_CLIENT_SECRET || '',
+          enabled: Boolean(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET),
         },
       },
 
@@ -135,6 +149,10 @@ export function getAuth(): Promise<any> {
         modelName: 'verifications',
       },
     });
+  }).catch((err) => {
+    // Reset cache on failure so future invocations can retry cleanly
+    authPromise = null;
+    throw err;
   });
 
   return authPromise;

@@ -31,7 +31,7 @@ export async function retrieveClinicalContext(message: string, modality?: string
     // Qdrant Cloud uses the Query API. The older `/points/search` endpoint is
     // no longer accepted by current clusters and returns HTTP 400.
     const queryPoints = (activeFilter?: typeof filter) => fetch(
-      `${config.qdrantUrl!.replace(/\/$/, '')}/collections/${config.qdrantCollection}/points/query`,
+      `${config.qdrantUrl!.replace(/\/$/, '')}/collections/${encodeURIComponent(config.qdrantCollection)}/points/query`,
       {
         method: 'POST',
         headers: {
@@ -57,8 +57,23 @@ export async function retrieveClinicalContext(message: string, modality?: string
     }
 
     if (!response.ok) {
-      if (response.status >= 500) qdrantUnavailableUntil = Date.now() + QDRANT_RETRY_DELAY_MS;
-      console.warn('[rag:qdrant_unavailable]', { status: response.status });
+      const errorBody = await response.text().catch(() => '');
+      if (response.status >= 500) {
+        qdrantUnavailableUntil = Date.now() + QDRANT_RETRY_DELAY_MS;
+      }
+      const category =
+        response.status === 401 ? 'invalid_api_key' :
+        response.status === 403 ? 'permission_issue' :
+        response.status === 404 ? 'collection_or_url_not_found' :
+        response.status === 400 ? 'malformed_request_or_vector_dimension_mismatch' :
+        response.status >= 500 ? 'qdrant_server_error' : 'other_error';
+
+      console.error('[Qdrant] Request failed', {
+        status: response.status,
+        statusText: response.statusText,
+        errorCategory: category,
+        body: errorBody
+      });
       return [];
     }
 
@@ -76,7 +91,10 @@ export async function retrieveClinicalContext(message: string, modality?: string
     })).filter((item) => item.text);
   } catch (error) {
     qdrantUnavailableUntil = Date.now() + QDRANT_RETRY_DELAY_MS;
-    console.warn('[rag:qdrant_unavailable]', { code: networkErrorCode(error) });
+    console.error('[Qdrant] Network/connection error:', {
+      error: error instanceof Error ? error.message : String(error),
+      code: networkErrorCode(error)
+    });
     return [];
   }
 }
@@ -96,7 +114,7 @@ async function embedText(message: string): Promise<number[]> {
     const { getLocalEmbedding } = await import('./local.embedding');
     return await getLocalEmbedding(message);
   } catch (error) {
-    console.error('[RAG Retriever] Local embedding generation failed:', error);
+    console.error('[RAG Retriever] Local embedding generation failed:', error instanceof Error ? error.message : error);
     return [];
   }
 }

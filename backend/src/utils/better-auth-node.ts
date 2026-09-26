@@ -29,23 +29,56 @@ export async function serveBetterAuth(
   const host = req.headers['x-forwarded-host'] || req.headers.host || 'localhost';
   const url = `${protocol}://${host}${req.originalUrl || req.url}`;
   const method = req.method.toUpperCase();
+  const headers = headersFromNode(req.headers);
+  if ((method === 'POST' || method === 'PUT' || method === 'PATCH') && !headers.has('content-type')) {
+    headers.set('content-type', 'application/json');
+  }
+
   const init: RequestInit = {
     method,
-    headers: headersFromNode(req.headers)
+    headers
   };
 
   if (method !== 'GET' && method !== 'HEAD') {
-    // Node's Fetch implementation requires `duplex: 'half'` when its body is
-    // a stream. `duplex` is implemented by Node but is not in RequestInit's
-    // TypeScript definition yet.
-    Object.assign(init, {
-      body: Readable.toWeb(req) as unknown as BodyInit,
-      duplex: 'half'
-    });
+    const contentLength = req.headers['content-length'];
+    if (contentLength === '0' || (!contentLength && !req.headers['transfer-encoding'])) {
+      Object.assign(init, {
+        body: '{}',
+      });
+      headers.set('content-type', 'application/json');
+    } else {
+      // Node's Fetch implementation requires `duplex: 'half'` when its body is
+      // a stream. `duplex` is implemented by Node but is not in RequestInit's
+      // TypeScript definition yet.
+      Object.assign(init, {
+        body: Readable.toWeb(req) as unknown as BodyInit,
+        duplex: 'half'
+      });
+    }
   }
 
   const response = await handler(new Request(url, init));
   res.status(response.status);
-  response.headers.forEach((value, name) => res.setHeader(name, value));
+
+  // Set standard headers except set-cookie
+  response.headers.forEach((value, name) => {
+    if (name.toLowerCase() !== 'set-cookie') {
+      res.setHeader(name, value);
+    }
+  });
+
+  // Fetch Headers can hold multiple set-cookie values. Use getSetCookie() to avoid
+  // overwriting or illegally joining them with commas.
+  if (typeof response.headers.getSetCookie === 'function') {
+    const cookies = response.headers.getSetCookie();
+    if (cookies.length > 0) {
+      res.setHeader('set-cookie', cookies);
+    }
+  } else {
+    const cookie = response.headers.get('set-cookie');
+    if (cookie) res.setHeader('set-cookie', cookie);
+  }
+
   res.end(Buffer.from(await response.arrayBuffer()));
 }
+
