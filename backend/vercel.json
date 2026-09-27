@@ -10,11 +10,7 @@
   "functions": {
     "api/index.js": {
       "maxDuration": 60,
-      "includeFiles": [
-        "node_modules/better-auth/**",
-        "node_modules/@better-auth/**",
-        "node_modules/better-call/**"
-      ]
+      "includeFiles": "node_modules/*better*/**"
     }
   }
 }
