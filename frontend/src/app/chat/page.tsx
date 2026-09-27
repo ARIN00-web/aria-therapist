@@ -6,6 +6,8 @@ import AppShell from '@/components/AppShell';
 import { sessionsApi, type Session, type Message } from '@/lib/api';
 import { streamMessage } from '@/lib/stream';
 import { Button, MoodSlider } from '@/components/ui';
+import { useVoiceChat } from '@/lib/useVoiceChat';
+import VoiceModeModal from '@/components/VoiceModeModal';
 
 type Phase = 'loading' | 'mood-in' | 'chat' | 'mood-out' | 'summary';
 
@@ -22,6 +24,8 @@ export default function ChatPage() {
   const [crisis, setCrisis] = useState<{ content: string } | null>(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [voiceModalOpen, setVoiceModalOpen] = useState(false);
+  const [currentlySpeakingIndex, setCurrentlySpeakingIndex] = useState<number | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -92,9 +96,37 @@ export default function ChatPage() {
     }
   }
 
-  const sendMessage = useCallback(async () => {
-    if (!session || !input.trim() || streaming) return;
-    const text = input.trim();
+  const {
+    isListening,
+    isSpeaking,
+    voiceEnabled,
+    sttSupported,
+    ttsSupported,
+    startListening,
+    stopListening,
+    toggleListening,
+    speak,
+    stopSpeaking,
+    toggleVoiceEnabled,
+  } = useVoiceChat({
+    voiceMode: voiceModalOpen,
+    onTranscript: (transcript) => {
+      setInput(transcript);
+    },
+    onAutoSend: (text) => {
+      if (text && !streaming) {
+        sendMessage(text);
+      }
+    },
+  });
+
+  const sendMessage = useCallback(async (textOverride?: string) => {
+    const text = (textOverride !== undefined ? textOverride : input).trim();
+    if (!session || !text || streaming) return;
+
+    stopSpeaking();
+    setCurrentlySpeakingIndex(null);
+
     setInput('');
     setError('');
     setStreaming(true);
@@ -118,6 +150,9 @@ export default function ChatPage() {
         ]);
         setStreamingText('');
         setStreaming(false);
+        if (voiceEnabled) {
+          speak(data.content);
+        }
       },
       onDone: () => {
         setMessages((prev) => [
@@ -126,6 +161,14 @@ export default function ChatPage() {
         ]);
         setStreamingText('');
         setStreaming(false);
+
+        if (voiceEnabled && accumulated) {
+          speak(accumulated, () => {
+            if (voiceModalOpen) {
+              startListening();
+            }
+          });
+        }
         setTimeout(() => inputRef.current?.focus(), 50);
       },
       onError: (msg) => {
@@ -134,7 +177,7 @@ export default function ChatPage() {
         setStreaming(false);
       },
     });
-  }, [session, input, streaming]);
+  }, [session, input, streaming, voiceEnabled, voiceModalOpen, speak, stopSpeaking, startListening]);
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -192,22 +235,60 @@ export default function ChatPage() {
               <div>
                 <div style={styles.ariaName}>Aria</div>
                 <div style={styles.ariaStatus}>
-                  {streaming ? (
+                  {isSpeaking ? (
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--accent)' }}>
+                      <span>Speaking</span>
+                      <span className="typing-dot" />
+                    </span>
+                  ) : streaming ? (
                     <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                       <span className="typing-dot" />
                       <span className="typing-dot" />
                       <span className="typing-dot" />
                     </span>
+                  ) : isListening ? (
+                    <span style={{ color: 'var(--red)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <span style={{ display: 'inline-block', width: 6, height: 6, borderRadius: '50%', background: 'var(--red)' }} />
+                      Listening…
+                    </span>
                   ) : 'Here with you'}
                 </div>
               </div>
-              <Button
-                variant="soft"
-                style={{ marginLeft: 'auto', fontSize: 13 }}
-                onClick={() => setPhase('mood-out')}
-              >
-                End session
-              </Button>
+
+              <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
+                {/* Voice Mode Button */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setVoiceModalOpen(true);
+                    startListening();
+                  }}
+                  style={styles.voiceModeBtn}
+                  title="Open hands-free Voice Mode"
+                >
+                  <span style={{ fontSize: 13 }}>🎙️</span>
+                  <span style={{ fontSize: 12, fontWeight: 600 }}>Voice Mode</span>
+                </button>
+
+                {/* Auto-readout mute/unmute toggle */}
+                <button
+                  type="button"
+                  onClick={toggleVoiceEnabled}
+                  style={styles.headerIconBtn}
+                  title={voiceEnabled ? 'Voice readout is ON (Click to mute)' : 'Voice readout is MUTED (Click to unmute)'}
+                  aria-label="Toggle voice readout"
+                >
+                  {voiceEnabled ? '🔊' : '🔇'}
+                </button>
+
+                <Button
+                  variant="soft"
+                  style={{ fontSize: 13, padding: '7px 14px' }}
+                  onClick={() => setPhase('mood-out')}
+                >
+                  End session
+                </Button>
+              </div>
             </div>
 
             <div style={styles.messages}>
@@ -238,7 +319,28 @@ export default function ChatPage() {
                       ...(msg.role === 'user' ? styles.bubbleUser : styles.bubbleAria),
                     }}
                   >
-                    {msg.content}
+                    <div>{msg.content}</div>
+                    {msg.role === 'assistant' && (
+                      <div style={styles.bubbleActions}>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (isSpeaking && currentlySpeakingIndex === i) {
+                              stopSpeaking();
+                              setCurrentlySpeakingIndex(null);
+                            } else {
+                              setCurrentlySpeakingIndex(i);
+                              speak(msg.content, () => setCurrentlySpeakingIndex(null));
+                            }
+                          }}
+                          style={styles.readAloudBtn}
+                          title={isSpeaking && currentlySpeakingIndex === i ? 'Stop reading' : 'Read aloud'}
+                          aria-label="Read message aloud"
+                        >
+                          {isSpeaking && currentlySpeakingIndex === i ? '⏹ Stop' : '🔊 Listen'}
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
               ))}
@@ -289,20 +391,52 @@ export default function ChatPage() {
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   onKeyDown={handleKeyDown}
-                  placeholder="Share what's on your mind… (Enter to send)"
+                  placeholder={
+                    isListening
+                      ? 'Listening to you… speak now'
+                      : "Share what's on your mind… (Enter to send)"
+                  }
                   disabled={streaming}
                   rows={1}
-                  style={styles.textarea}
+                  style={{
+                    ...styles.textarea,
+                    ...(isListening
+                      ? {
+                          borderColor: 'var(--red)',
+                          boxShadow: '0 0 0 2px rgba(220,106,106,0.2)',
+                        }
+                      : {}),
+                  }}
                 />
+
+                {/* Microphone Speech-to-Text Button */}
+                <button
+                  type="button"
+                  onClick={toggleListening}
+                  disabled={streaming}
+                  style={{
+                    ...styles.micInputBtn,
+                    ...(isListening ? styles.micInputBtnActive : {}),
+                  }}
+                  title={isListening ? 'Stop listening' : 'Speak with microphone'}
+                  aria-label={isListening ? 'Stop listening' : 'Start voice input'}
+                >
+                  {isListening ? '⏹' : '🎙️'}
+                </button>
+
                 <Button
-                  onClick={sendMessage}
+                  onClick={() => sendMessage()}
                   disabled={!input.trim() || streaming}
                   style={{ flexShrink: 0, padding: '10px 16px' }}
                 >
                   ↑
                 </Button>
               </div>
-              <p style={styles.inputHint}>Shift+Enter for new line · End session when you&apos;re ready</p>
+              <p style={styles.inputHint}>
+                {isListening
+                  ? 'Speaking into microphone… click stop or pause to send'
+                  : "Tap 🎙️ to talk · Shift+Enter for new line · End session when you're ready"}
+              </p>
             </div>
           </div>
         )}
@@ -384,6 +518,28 @@ export default function ChatPage() {
             </div>
           </div>
         )}
+        <VoiceModeModal
+          isOpen={voiceModalOpen}
+          onClose={() => {
+            setVoiceModalOpen(false);
+            stopListening();
+            stopSpeaking();
+          }}
+          isListening={isListening}
+          isSpeaking={isSpeaking}
+          streaming={streaming}
+          transcript={input}
+          lastAriaMessage={
+            streamingText ||
+            messages.filter((m) => m.role === 'assistant').slice(-1)[0]?.content ||
+            ''
+          }
+          onStartListening={startListening}
+          onStopListening={stopListening}
+          onStopSpeaking={stopSpeaking}
+          voiceEnabled={voiceEnabled}
+          onToggleVoice={toggleVoiceEnabled}
+        />
       </div>
     </AppShell>
   );
@@ -542,4 +698,66 @@ const styles: Record<string, React.CSSProperties> = {
     padding: 16,
   },
   reflectionText: { fontSize: 14, color: 'var(--text)', lineHeight: 1.7, fontStyle: 'italic' },
+  voiceModeBtn: {
+    background: 'var(--accent-glow)',
+    border: '1px solid var(--accent)',
+    borderRadius: 'var(--radius-sm)',
+    color: 'var(--accent)',
+    padding: '6px 12px',
+    cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    gap: 6,
+    transition: 'all 0.15s ease',
+  },
+  headerIconBtn: {
+    background: 'var(--bg-elevated)',
+    border: '1px solid var(--border)',
+    borderRadius: 'var(--radius-sm)',
+    padding: '6px 10px',
+    cursor: 'pointer',
+    fontSize: 14,
+    color: 'var(--text)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    transition: 'all 0.15s ease',
+  },
+  micInputBtn: {
+    background: 'var(--bg-elevated)',
+    border: '1px solid var(--border)',
+    borderRadius: 12,
+    padding: '10px 14px',
+    cursor: 'pointer',
+    fontSize: 16,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+    transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
+  },
+  micInputBtnActive: {
+    background: 'var(--red)',
+    borderColor: 'var(--red)',
+    color: '#ffffff',
+    boxShadow: '0 0 15px rgba(220, 106, 106, 0.5)',
+  },
+  bubbleActions: {
+    marginTop: 6,
+    display: 'flex',
+    justifyContent: 'flex-start',
+  },
+  readAloudBtn: {
+    background: 'rgba(0, 0, 0, 0.04)',
+    border: '1px solid var(--border-subtle)',
+    borderRadius: 6,
+    padding: '3px 8px',
+    fontSize: 11,
+    color: 'var(--text-muted)',
+    cursor: 'pointer',
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 4,
+    transition: 'all 0.15s ease',
+  },
 };
