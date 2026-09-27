@@ -5,19 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { signIn, signUp } from '@/lib/auth-client';
 import { Button } from '@/components/ui';
-
-function getApiBase(): string {
-  const configured = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_APP_URL;
-  if (configured) {
-    return configured.replace(/\/$/, '');
-  }
-  if (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
-    return window.location.origin;
-  }
-  return 'http://localhost:5001';
-}
-
-const API_BASE = getApiBase();
+import { API_BASE } from '@/lib/api';
 
 export default function LoginPage() {
   const [mode, setMode] = useState<'signin' | 'signup'>('signin');

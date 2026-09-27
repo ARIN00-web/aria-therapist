@@ -26,6 +26,11 @@ function isAllowedOrigin(origin: string | undefined): boolean {
   const normalized = origin.replace(/\/$/, '');
   if (config.frontendOrigins.includes(normalized)) return true;
 
+  // Allow any Vercel deployment (preview or production) for the project or organization
+  if (/^https:\/\/([a-z0-9-]+)\.vercel\.app$/i.test(normalized)) {
+    return true;
+  }
+
   // In local development only, allow localhost and LAN IPs
   if (config.nodeEnv !== 'production' && !process.env.VERCEL) {
     return /^https?:\/\/(localhost|127(?:\.\d{1,3}){3}|0(?:\.\d{1,3}){3}|10(?:\.\d{1,3}){3}|192\.168(?:\.\d{1,3}){2}|172\.(?:1[6-9]|2\d|3[0-1])(?:\.\d{1,3}){2})(:\d+)?$/i.test(origin);

@@ -8,7 +8,7 @@ import {
   useCallback,
   type ReactNode,
 } from 'react';
-import { authApi, setAccessToken, setUnauthenticatedHandler, type User } from '@/lib/api';
+import { authApi, setAccessToken, setUnauthenticatedHandler, API_BASE, type User } from '@/lib/api';
 import { getSession, signOut } from '@/lib/auth-client';
 
 interface AuthState {
@@ -21,19 +21,6 @@ interface AuthState {
 }
 
 const AuthContext = createContext<AuthState | null>(null);
-
-function getApiBase(): string {
-  const configured = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_APP_URL;
-  if (configured) {
-    return configured.replace(/\/$/, '');
-  }
-  if (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
-    return window.location.origin;
-  }
-  return 'http://localhost:5001';
-}
-
-const API_BASE = getApiBase();
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);

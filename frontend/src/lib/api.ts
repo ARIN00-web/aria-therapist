@@ -1,15 +1,21 @@
-function getApiBase(): string {
+export function getApiBase(): string {
   const configured = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_APP_URL;
-  if (configured) {
-    return configured.replace(/\/$/, '');
+  if (configured && configured.trim()) {
+    return configured.trim().replace(/\/$/, '');
   }
-  if (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
-    return window.location.origin;
+  if (typeof window !== 'undefined') {
+    const host = window.location.hostname;
+    if (host !== 'localhost' && host !== '127.0.0.1') {
+      return 'https://aria-therapist.vercel.app';
+    }
+  }
+  if (process.env.NODE_ENV === 'production') {
+    return 'https://aria-therapist.vercel.app';
   }
   return 'http://localhost:5001';
 }
 
-const API_BASE = getApiBase();
+export const API_BASE = getApiBase();
 
 let accessToken: string | null = null;
 

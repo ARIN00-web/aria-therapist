@@ -88,9 +88,12 @@ export function getAuth(): Promise<any> {
         process.env.BETTER_AUTH_SECRET ||
         process.env.AUTH_SECRET,
 
-      baseURL,
-
-      trustedOrigins: config.frontendOrigins,
+      trustedOrigins: [
+        ...config.frontendOrigins,
+        'https://aria-therapist-ws67.vercel.app',
+        'https://aria-therapist.vercel.app',
+        'https://*.vercel.app'
+      ],
 
       advanced: {
         defaultCookieAttributes:

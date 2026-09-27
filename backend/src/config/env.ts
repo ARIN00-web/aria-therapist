@@ -52,16 +52,10 @@ function getFrontendOrigins(): string[] {
     .filter(Boolean);
 
   const isProduction = (process.env.NODE_ENV === 'production') || Boolean(process.env.VERCEL);
-  if (isProduction && parsedOrigins.length === 0) {
-    throw new Error('FRONTEND_ORIGIN environment variable is required in production');
-  }
-
-  const defaults = isProduction ? [] : ['http://localhost:3000', 'http://127.0.0.1:3000'];
+  const defaults = isProduction
+    ? ['https://aria-therapist-ws67.vercel.app', 'https://aria-therapist.vercel.app']
+    : ['http://localhost:3000', 'http://127.0.0.1:3000'];
   const allOrigins = Array.from(new Set([...parsedOrigins, ...defaults].map(normalizeOrigin)));
-
-  if (allOrigins.length === 0) {
-    throw new Error('No valid frontend origins configured');
-  }
 
   return allOrigins;
 }

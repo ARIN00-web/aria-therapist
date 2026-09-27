@@ -1,6 +1,4 @@
-import { getAccessToken } from './api';
-
-const API_BASE = (process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:5001').replace(/\/$/, '');
+import { getAccessToken, API_BASE } from './api';
 
 export interface StreamHandlers {
   onToken?: (text: string) => void;
