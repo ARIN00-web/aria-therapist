@@ -84,6 +84,22 @@ app.all('/api/auth/*path', async (req, res, next) => {
 app.use(express.json({ limit: '64kb' }));
 app.use(rateLimit);
 
+app.get('/', (_req, res) => {
+  const databaseReady = Boolean(app.locals.dbReady);
+  res.status(200).json({
+    status: 'ok',
+    service: 'aria-therapist-api',
+    message: 'Aria Therapist Backend API is running.',
+    database: databaseReady ? 'connected' : 'unavailable',
+    rag: config.qdrantUrl ? 'configured' : 'not_configured',
+    endpoints: {
+      health: '/health',
+      qdrant: '/health/qdrant',
+      auth: '/api/auth'
+    }
+  });
+});
+
 app.get('/health', (_req, res) => {
   const databaseReady = Boolean(app.locals.dbReady);
   res.status(databaseReady ? 200 : 503).json({
