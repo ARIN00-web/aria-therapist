@@ -40,21 +40,40 @@ export async function serveBetterAuth(
   };
 
   if (method !== 'GET' && method !== 'HEAD') {
-    const contentLength = req.headers['content-length'];
-    if (contentLength === '0' || (!contentLength && !req.headers['transfer-encoding'])) {
-      Object.assign(init, {
-        body: '{}',
-      });
-      headers.set('content-type', 'application/json');
+    let bodyContent: BodyInit | undefined;
+
+    // 1. If Vercel or upstream middleware already parsed the body into req.body
+    if (req.body !== undefined && req.body !== null) {
+      if (typeof req.body === 'string') {
+        bodyContent = req.body;
+      } else if (Buffer.isBuffer(req.body)) {
+        bodyContent = req.body.toString('utf-8');
+      } else {
+        bodyContent = JSON.stringify(req.body);
+      }
     } else {
-      // Node's Fetch implementation requires `duplex: 'half'` when its body is
-      // a stream. `duplex` is implemented by Node but is not in RequestInit's
-      // TypeScript definition yet.
-      Object.assign(init, {
-        body: Readable.toWeb(req) as unknown as BodyInit,
-        duplex: 'half'
-      });
+      const contentLength = req.headers['content-length'];
+      if (contentLength === '0' || (!contentLength && !req.headers['transfer-encoding'])) {
+        bodyContent = '{}';
+      } else {
+        // Safely buffer the stream into a string to avoid Vercel duplex/premature-close issues
+        try {
+          const chunks: Buffer[] = [];
+          for await (const chunk of req) {
+            chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+          }
+          const buf = Buffer.concat(chunks);
+          bodyContent = buf.length > 0 ? buf.toString('utf-8') : '{}';
+        } catch (streamErr) {
+          console.warn('[better-auth-node] Stream buffering error, falling back to empty object:', streamErr);
+          bodyContent = '{}';
+        }
+      }
     }
+
+    Object.assign(init, {
+      body: bodyContent
+    });
   }
 
   const response = await handler(new Request(url, init));

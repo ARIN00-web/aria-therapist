@@ -62,7 +62,10 @@ app.get('/api/auth/get-session', async (req, res, next) => {
     const auth = await getAuth();
     await serveBetterAuth(req, res, auth.handler);
   } catch (error) {
-    next(error);
+    console.error('[auth:get_session_error]', {
+      error: error instanceof Error ? error.message : String(error)
+    });
+    res.status(200).json({ data: null });
   }
 });
 
@@ -78,7 +81,15 @@ app.all('/api/auth/*path', async (req, res, next) => {
     const auth = await getAuth();
     await serveBetterAuth(req, res, auth.handler);
   } catch (error) {
-    next(error);
+    console.error('[auth:endpoint_error]', {
+      url: req.originalUrl || req.url,
+      method: req.method,
+      error: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined
+    });
+    res.status(500).json({
+      error: error instanceof Error ? error.message : 'Internal authentication error'
+    });
   }
 });
 app.use(express.json({ limit: '64kb' }));
