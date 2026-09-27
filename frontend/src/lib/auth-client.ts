@@ -3,8 +3,9 @@
 import { createAuthClient } from 'better-auth/react';
 
 function getAuthBaseUrl(): string {
-  if (process.env.NEXT_PUBLIC_API_URL) {
-    return process.env.NEXT_PUBLIC_API_URL.replace(/\/$/, '');
+  const configured = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_APP_URL;
+  if (configured) {
+    return configured.replace(/\/$/, '');
   }
   if (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
     console.warn('[auth-client] NEXT_PUBLIC_API_URL is not configured. Falling back to current origin.');
