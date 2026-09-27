@@ -1,18 +1,45 @@
+import path from 'path';
+import fs from 'fs';
+import { pathToFileURL } from 'url';
 import { MongoClient } from 'mongodb';
 import { getConfig, normalizeMongoUri } from './env';
 import { importEsm } from '../utils/esm';
 
-// `better-auth` is ESM-only. This file is also loaded by Vercel's CommonJS
-// function runtime, so imports must stay dynamic; a static import is rewritten
-// to require() and crashes before the API can start.
+function getBetterAuthModuleUrls() {
+  const candidates = [
+    path.resolve(__dirname, '../../node_modules/better-auth'),
+    path.resolve(__dirname, '../../../node_modules/better-auth'),
+    path.resolve(process.cwd(), 'node_modules/better-auth'),
+    path.resolve(process.cwd(), 'backend/node_modules/better-auth'),
+  ];
+
+  for (const candidate of candidates) {
+    const entry = path.join(candidate, 'dist/index.mjs');
+    const adapter = path.join(candidate, 'dist/adapters/mongodb-adapter/index.mjs');
+    if (fs.existsSync(entry) && fs.existsSync(adapter)) {
+      return {
+        betterAuthUrl: pathToFileURL(entry).href,
+        mongodbAdapterUrl: pathToFileURL(adapter).href,
+      };
+    }
+  }
+
+  return {
+    betterAuthUrl: 'better-auth',
+    mongodbAdapterUrl: 'better-auth/adapters/mongodb',
+  };
+}
+
 let authPromise: Promise<any> | null = null;
 
 export function getAuth(): Promise<any> {
   if (authPromise) return authPromise;
 
+  const { betterAuthUrl, mongodbAdapterUrl } = getBetterAuthModuleUrls();
+
   authPromise = Promise.all([
-    importEsm(['better-auth'].join('')),
-    importEsm(['better-auth', 'adapters/mongodb'].join('/'))
+    importEsm(betterAuthUrl),
+    importEsm(mongodbAdapterUrl)
   ]).then(async ([{ betterAuth }, { mongodbAdapter }]) => {
     const config = getConfig();
 
