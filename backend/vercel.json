@@ -13,9 +13,7 @@
       "includeFiles": [
         "node_modules/better-auth/**",
         "node_modules/@better-auth/**",
-        "node_modules/better-call/**",
-        "node_modules/@xenova/**",
-        "node_modules/onnxruntime-node/**"
+        "node_modules/better-call/**"
       ]
     }
   }
