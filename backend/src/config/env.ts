@@ -138,7 +138,10 @@ export function validateAndLogStartupConfig(): void {
 
   const config = getConfig();
   const isProduction = config.nodeEnv === 'production' || Boolean(process.env.VERCEL);
-  const betterAuthUrl = process.env.BETTER_AUTH_URL?.trim();
+  const productionDefaultUrl = process.env.VERCEL_PROJECT_PRODUCTION_URL
+    ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
+    : 'https://aria-therapist.vercel.app';
+  const betterAuthUrl = process.env.BETTER_AUTH_URL?.trim() || (isProduction ? productionDefaultUrl : undefined);
 
   console.log('[startup:validation] -----------------------------------------');
   console.log(`[startup:validation] NODE_ENV: ${config.nodeEnv}`);
@@ -146,7 +149,7 @@ export function validateAndLogStartupConfig(): void {
   console.log(`[startup:validation] ENCRYPTION_KEY: configured`);
   console.log(`[startup:validation] AUTH_SECRET: configured`);
   console.log(`[startup:validation] BETTER_AUTH_SECRET: ${process.env.BETTER_AUTH_SECRET ? 'configured' : 'using AUTH_SECRET'}`);
-  console.log(`[startup:validation] BETTER_AUTH_URL: ${betterAuthUrl ? 'configured' : (isProduction ? 'MISSING (required in production)' : 'fallback: http://localhost:5001')}`);
+  console.log(`[startup:validation] BETTER_AUTH_URL: ${betterAuthUrl ? `configured (${betterAuthUrl})` : 'fallback: http://localhost:5001'}`);
   console.log(`[startup:validation] FRONTEND_ORIGIN: configured (${config.frontendOrigin})`);
   console.log(`[startup:validation] FRONTEND_ORIGINS count: ${config.frontendOrigins.length}`);
   console.log(`[startup:validation] OPENROUTER_API_KEY: ${config.openrouterApiKey ? 'configured' : 'not_configured'}`);
@@ -155,8 +158,4 @@ export function validateAndLogStartupConfig(): void {
   console.log(`[startup:validation] QDRANT_API_KEY: ${config.qdrantApiKey ? 'configured' : 'not_configured'}`);
   console.log(`[startup:validation] QDRANT_COLLECTION: ${config.qdrantCollection}`);
   console.log('[startup:validation] -----------------------------------------');
-
-  if (isProduction && !betterAuthUrl) {
-    throw new Error('BETTER_AUTH_URL is required in production');
-  }
 }

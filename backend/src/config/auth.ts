@@ -38,12 +38,13 @@ export function getAuth(): Promise<any> {
 
     const isProduction = config.nodeEnv === 'production' || Boolean(process.env.VERCEL);
     const configuredBetterAuthUrl = process.env.BETTER_AUTH_URL?.trim();
+    const productionFallback = process.env.VERCEL_PROJECT_PRODUCTION_URL
+      ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
+      : 'https://aria-therapist.vercel.app';
 
-    if (isProduction && (!configuredBetterAuthUrl || configuredBetterAuthUrl.includes('localhost') || configuredBetterAuthUrl.includes('127.0.0.1'))) {
-      throw new Error('BETTER_AUTH_URL must be configured with the production backend URL in production');
-    }
-
-    const baseURL = configuredBetterAuthUrl || 'http://localhost:5001';
+    const baseURL = (configuredBetterAuthUrl && !configuredBetterAuthUrl.includes('localhost') && !configuredBetterAuthUrl.includes('127.0.0.1'))
+      ? configuredBetterAuthUrl
+      : (isProduction ? productionFallback : (configuredBetterAuthUrl || 'http://localhost:5001'));
 
     return betterAuth({
       database: mongodbAdapter(db, {
