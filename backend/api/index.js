@@ -6,6 +6,18 @@
  * transform incorrectly rewrites Better Auth's ESM-only `better-auth/node`
  * integration, causing ERR_REQUIRE_ESM at invocation time.
  */
+// Tracing hints for Vercel Node File Trace (NFT) to ensure all runtime dependencies
+// are included in the packaged serverless Lambda bundle.
+try {
+  require.resolve('better-auth');
+  require.resolve('better-auth/adapters/mongodb');
+  require.resolve('@better-auth/mongo-adapter');
+  require.resolve('better-call');
+  require.resolve('better-call/node');
+} catch (_) {
+  // Tracing hints only
+}
+
 let app;
 let connectDatabase;
 
@@ -21,14 +33,22 @@ module.exports = async function handler(req, res) {
     loadBackend();
     await connectDatabase();
     app.locals.dbReady = true;
-    app(req, res);
+
+    return await new Promise((resolve, reject) => {
+      res.on('finish', resolve);
+      res.on('close', resolve);
+      res.on('error', reject);
+      app(req, res);
+    });
   } catch (error) {
     console.error('[server:startup_failed]', {
       timestamp: new Date().toISOString(),
       error: error instanceof Error ? error.message : 'unknown'
     });
-    res.status(503).json({
-      error: 'Service configuration or database is unavailable. Check the Vercel function logs.'
-    });
+    if (!res.headersSent) {
+      res.status(503).json({
+        error: 'Service configuration or database is unavailable. Check the Vercel function logs.'
+      });
+    }
   }
 };
